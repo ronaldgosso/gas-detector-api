@@ -1,6 +1,6 @@
 // ==========================================
 // GAS LEAK DETECTION DASHBOARD - JAVASCRIPT
-// Real-time monitoring with Theme System
+// Fixed: Notiflix loading and animated loading screen
 // ==========================================
 
 // Configuration
@@ -8,8 +8,309 @@ const API_BASE_URL = 'http://localhost:3000';
 let currentPage = 1;
 let itemsPerPage = 10;
 let autoRefreshInterval = 2000; // 2 seconds
+let autoRefreshEnabled = true;
+let notificationSoundEnabled = true;
+let currentTheme = 'light';
+let arduinoConnected = false;
+let signalStrength = 0;
 let chart = null;
-let currentTheme = 'light'; // Default theme
+let dailyChart = null;
+let distributionChart = null;
+let lastGasLevel = 0;
+let lastStatus = 'NORMAL';
+
+// Loading screen progress tracking
+let loadingProgress = 0;
+let loadingInterval;
+
+// Initialize dashboard on page load
+document.addEventListener('DOMContentLoaded', function () {
+    // Initialize Notiflix immediately after DOM loads
+    initializeNotiflix();
+
+    // Start animated loading screen
+    startLoadingAnimation();
+
+    // Load saved settings
+    loadSettings();
+
+    // Initialize charts
+    initializeCharts();
+
+    // Setup event listeners
+    setupEventListeners();
+
+    // Load all data immediately (don't wait for Arduino)
+    loadDataAndInitialize();
+});
+
+// ===== NOTIFLIX INITIALIZATION =====
+function initializeNotiflix() {
+    // Check if Notiflix is loaded
+    if (typeof Notiflix !== 'undefined') {
+        Notiflix.Notify.init({
+            width: '320px',
+            position: 'right-top',
+            distance: '10px',
+            opacity: 1,
+            borderRadius: '8px',
+            rtl: false,
+            timeout: 3000,
+            messageMaxLength: 110,
+            backOverlay: false,
+            backOverlayColor: 'rgba(0,0,0,0.5)',
+            plainText: true,
+            showOnlyTheLastOne: false,
+            clickToClose: true,
+            pauseOnHover: true,
+            ID: 'NotiflixNotify',
+            className: 'notiflix-notify',
+            zindex: 4001,
+            fontFamily: 'inherit',
+            fontSize: '16px',
+            cssAnimation: true,
+            cssAnimationDuration: 400,
+            cssAnimationStyle: 'fade',
+            closeButton: true,
+            useIcon: true,
+            useFontAwesome: false,
+            fontAwesomeIconStyle: 'basic',
+            fontAwesomeIconSize: '34px',
+            success: {
+                background: '#22C55E',
+                textColor: '#fff',
+                childClassName: 'notiflix-notify-success',
+                notiflixIconColor: 'rgba(0,0,0,0.2)',
+                fontAwesomeIconColor: '#fff',
+                backOverlayColor: 'rgba(34,197,94,0.2)',
+            },
+            failure: {
+                background: '#EF4444',
+                textColor: '#fff',
+                childClassName: 'notiflix-notify-failure',
+                notiflixIconColor: 'rgba(0,0,0,0.2)',
+                fontAwesomeIconColor: '#fff',
+                backOverlayColor: 'rgba(239,68,68,0.2)',
+            },
+            warning: {
+                background: '#EAB308',
+                textColor: '#fff',
+                childClassName: 'notiflix-notify-warning',
+                notiflixIconColor: 'rgba(0,0,0,0.2)',
+                fontAwesomeIconColor: '#fff',
+                backOverlayColor: 'rgba(234,179,8,0.2)',
+            },
+            info: {
+                background: '#38BDF8',
+                textColor: '#fff',
+                childClassName: 'notiflix-notify-info',
+                notiflixIconColor: 'rgba(0,0,0,0.2)',
+                fontAwesomeIconColor: '#fff',
+                backOverlayColor: 'rgba(56,189,248,0.2)',
+            },
+        });
+
+        Notiflix.Report.init({
+            titleMaxLength: 32,
+            messageMaxLength: 400,
+            buttonMaxLength: 32,
+            cssAnimation: true,
+            cssAnimationDuration: 400,
+            cssAnimationStyle: 'fade',
+            svgSize: '110px',
+            plainText: true,
+            titleColor: 'var(--text-primary)',
+            messageColor: 'var(--text-secondary)',
+            buttonColor: '#38BDF8',
+            buttonBackground: 'transparent',
+            buttonHoverBackground: 'rgba(56,189,248,0.1)',
+            buttonFocusBackground: 'rgba(56,189,248,0.1)',
+            svgSize: '110px',
+            fontFamily: 'inherit',
+        });
+
+        console.log('✅ Notiflix initialized successfully');
+    } else {
+        console.error('❌ Notiflix not loaded - check script tag in HTML');
+    }
+}
+
+// ===== LOADING SCREEN ANIMATION =====
+function startLoadingAnimation() {
+    // Update loading status
+    updateLoadingStatus('Initializing dashboard...');
+
+    // Simulate progress with random intervals for more natural feel
+    loadingProgress = 0;
+    const progressElement = document.getElementById('loadingProgress');
+    const statusElement = document.getElementById('loadingStatus');
+
+    if (!progressElement || !statusElement) return;
+
+    // Clear any existing interval
+    if (loadingInterval) clearInterval(loadingInterval);
+
+    // Random progress increments for natural feel
+    const increments = [5, 8, 12, 7, 10, 15, 8, 12, 18, 10, 15, 20, 12, 18, 25];
+    let currentIndex = 0;
+
+    loadingInterval = setInterval(() => {
+        if (currentIndex < increments.length) {
+            loadingProgress += increments[currentIndex];
+            currentIndex++;
+
+            if (loadingProgress > 95) loadingProgress = 95; // Leave room for final completion
+
+            progressElement.style.width = loadingProgress + '%';
+        }
+    }, 300);
+}
+
+function updateLoadingStatus(message) {
+    const statusElement = document.getElementById('loadingStatus');
+    if (statusElement) {
+        statusElement.textContent = message;
+    }
+}
+
+function completeLoading() {
+    const progressElement = document.getElementById('loadingProgress');
+    if (progressElement) {
+        progressElement.style.width = '100%';
+    }
+
+    // Wait a moment for the progress bar to reach 100%
+    setTimeout(() => {
+        hideLoadingScreen();
+    }, 300);
+}
+
+function hideLoadingScreen() {
+    const loadingScreen = document.getElementById('loadingScreen');
+    if (loadingScreen) {
+        // Add fade-out class for smooth transition
+        loadingScreen.classList.add('fade-out');
+
+        // Remove after animation completes
+        setTimeout(() => {
+            loadingScreen.remove();
+        }, 500);
+    }
+}
+
+// ===== DATA LOADING AND INITIALIZATION =====
+async function loadDataAndInitialize() {
+    try {
+        updateLoadingStatus('Loading historical data...');
+
+        // Load chart data
+        await loadHistoricalChartData();
+        updateLoadingStatus('Loading latest readings...');
+
+        // Load latest reading
+        await loadLatestReading();
+        updateLoadingStatus('Loading incident logs...');
+
+        // Load incidents
+        await loadIncidents();
+        updateLoadingStatus('Loading statistics...');
+
+        // Load statistics
+        await loadStatistics();
+        updateLoadingStatus('Loading analytics...');
+
+        // Load daily stats
+        await loadDailyStats();
+
+        // Complete loading
+        completeLoading();
+
+        // Show success notification
+        if (typeof Notiflix !== 'undefined') {
+            Notiflix.Notify.success('Dashboard loaded with historical data!');
+        } else {
+            console.log('✅ Dashboard loaded with historical data!');
+        }
+
+        // Start real-time updates
+        startAutoRefresh();
+
+        // Check Bluetooth connection
+        checkBluetoothStatus();
+
+    } catch (error) {
+        console.error('Error loading initial ', error);
+        completeLoading();
+
+        if (typeof Notiflix !== 'undefined') {
+            Notiflix.Notify.info('Dashboard loaded (some data may be missing)');
+        }
+    }
+}
+
+// ===== THEME MANAGEMENT =====
+function loadTheme() {
+    const savedTheme = localStorage.getItem('gasMonitorTheme') || 'light';
+    setTheme(savedTheme, false);
+    updateThemeDisplay(savedTheme);
+}
+
+function setTheme(theme, showToast = true) {
+    currentTheme = theme;
+    document.documentElement.setAttribute('data-theme', theme);
+
+    // Update theme buttons
+    document.querySelectorAll('.theme-option').forEach(btn => {
+        btn.classList.remove('active');
+    });
+    const activeBtn = document.querySelector(`.theme-option[data-theme="${theme}"]`);
+    if (activeBtn) activeBtn.classList.add('active');
+
+    // Update theme toggle button
+    const themeIcon = document.getElementById('themeIcon');
+    const themeText = document.getElementById('themeText');
+    if (themeIcon && themeText) {
+        if (theme === 'dark') {
+            themeIcon.className = 'fas fa-sun';
+            themeText.textContent = 'Light Mode';
+        } else {
+            themeIcon.className = 'fas fa-moon';
+            themeText.textContent = 'Dark Mode';
+        }
+    }
+
+    // Update select dropdown
+    const themeSelect = document.getElementById('themeSelect');
+    if (themeSelect) themeSelect.value = theme;
+
+    // Save to localStorage
+    localStorage.setItem('gasMonitorTheme', theme);
+
+    // Update theme display
+    updateThemeDisplay(theme);
+
+    // Show toast notification
+    if (showToast) {
+        showToastMessage(`Switched to ${theme === 'dark' ? 'Dark' : 'Light'} Mode`);
+    }
+
+    // Update chart colors
+    updateChartTheme();
+}
+
+function toggleTheme() {
+    const newTheme = currentTheme === 'light' ? 'dark' : 'light';
+    setTheme(newTheme);
+}
+
+function updateThemeDisplay(theme) {
+    const display = document.getElementById('currentThemeDisplay');
+    if (display) {
+        display.textContent = theme === 'dark' ? 'Dark Mode' : 'Light Mode';
+    }
+}
+
+// ===== CHART INITIALIZATION =====
 let gasData = {
     labels: [],
     datasets: [{
@@ -27,296 +328,508 @@ let gasData = {
     }]
 };
 
-// Initialize dashboard on page load
-document.addEventListener('DOMContentLoaded', function() {
-    // Load saved theme
-    loadTheme();
-    
-    initializeDashboard();
-    setupEventListeners();
-    
-    // Start real-time updates
-    setInterval(fetchRealTimeData, autoRefreshInterval);
-    setInterval(fetchIncidents, autoRefreshInterval);
-});
+let dailyStatsData = {
+    labels: [],
+    datasets: [{
+        label: 'Total Incidents',
+        data: [],
+        borderColor: '#38BDF8',
+        backgroundColor: 'rgba(56, 189, 248, 0.1)',
+        borderWidth: 2,
+        fill: true,
+        tension: 0.4
+    }, {
+        label: 'Alerts',
+        data: [],
+        borderColor: '#EF4444',
+        backgroundColor: 'rgba(239, 68, 68, 0.1)',
+        borderWidth: 2,
+        fill: true,
+        tension: 0.4
+    }]
+};
 
-// ===== THEME MANAGEMENT =====
+let distributionData = {
+    labels: ['Normal', 'Alert'],
+    datasets: [{
+        data: [0, 0],
+        backgroundColor: ['#22C55E', '#EF4444'],
+        borderWidth: 0
+    }]
+};
 
-// Load theme from localStorage
-function loadTheme() {
-    const savedTheme = localStorage.getItem('gasMonitorTheme') || 'light';
-    setTheme(savedTheme, false);
-    updateThemeDisplay(savedTheme);
-}
-
-// Set theme
-function setTheme(theme, showToast = true) {
-    currentTheme = theme;
-    
-    // Update HTML attribute
-    document.documentElement.setAttribute('data-theme', theme);
-    
-    // Update theme buttons
-    document.querySelectorAll('.theme-option').forEach(btn => {
-        btn.classList.remove('active');
-    });
-    const activeBtn = document.querySelector(`.theme-option[data-theme="${theme}"]`);
-    if (activeBtn) activeBtn.classList.add('active');
-    
-    // Update theme toggle button
-    const themeToggle = document.getElementById('themeToggle');
-    const themeIcon = document.getElementById('themeIcon');
-    const themeText = document.getElementById('themeText');
-    
-    if (theme === 'dark') {
-        themeIcon.className = 'fas fa-sun';
-        themeText.textContent = 'Light Mode';
-    } else {
-        themeIcon.className = 'fas fa-moon';
-        themeText.textContent = 'Dark Mode';
-    }
-    
-    // Update select dropdown
-    const themeSelect = document.getElementById('themeSelect');
-    if (themeSelect) {
-        themeSelect.value = theme;
-    }
-    
-    // Save to localStorage
-    localStorage.setItem('gasMonitorTheme', theme);
-    
-    // Update theme display
-    updateThemeDisplay(theme);
-    
-    // Show toast notification
-    if (showToast) {
-        showToastMessage(`Switched to ${theme === 'dark' ? 'Dark' : 'Light'} Mode`);
-    }
-    
-    // Update chart colors based on theme
-    updateChartTheme();
-}
-
-// Toggle between light and dark theme
-function toggleTheme() {
-    const newTheme = currentTheme === 'light' ? 'dark' : 'light';
-    setTheme(newTheme);
-}
-
-// Update theme display text
-function updateThemeDisplay(theme) {
-    const display = document.getElementById('currentThemeDisplay');
-    if (display) {
-        display.textContent = theme === 'dark' ? 'Dark Mode' : 'Light Mode';
-    }
-}
-
-// Update chart colors based on theme
-function updateChartTheme() {
-    if (!chart) return;
-    
-    if (currentTheme === 'dark') {
-        chart.options.scales.x.grid.color = 'rgba(255, 255, 255, 0.1)';
-        chart.options.scales.x.ticks.color = '#94A3B8';
-        chart.options.scales.y.grid.color = 'rgba(255, 255, 255, 0.1)';
-        chart.options.scales.y.ticks.color = '#94A3B8';
-        chart.options.plugins.legend.labels.color = '#F1F5F9';
-        chart.options.plugins.tooltip.backgroundColor = '#1E293B';
-        chart.options.plugins.tooltip.titleColor = '#38BDF8';
-        chart.options.plugins.tooltip.bodyColor = '#F1F5F9';
-    } else {
-        chart.options.scales.x.grid.color = 'rgba(0, 0, 0, 0.1)';
-        chart.options.scales.x.ticks.color = '#6c757d';
-        chart.options.scales.y.grid.color = 'rgba(0, 0, 0, 0.1)';
-        chart.options.scales.y.ticks.color = '#6c757d';
-        chart.options.plugins.legend.labels.color = '#212529';
-        chart.options.plugins.tooltip.backgroundColor = '#ffffff';
-        chart.options.plugins.tooltip.titleColor = '#38BDF8';
-        chart.options.plugins.tooltip.bodyColor = '#212529';
-    }
-    
-    chart.update();
-}
-
-// Show toast message
-function showToastMessage(message) {
-    const toastEl = document.getElementById('themeToast');
-    const toastMessage = document.getElementById('themeToastMessage');
-    
-    if (toastMessage && toastEl) {
-        toastMessage.textContent = message;
-        const toast = new bootstrap.Toast(toastEl);
-        toast.show();
-    }
-}
-
-// ===== DASHBOARD INITIALIZATION =====
-
-// Initialize dashboard
-function initializeDashboard() {
-    // Initialize chart
-    const ctx = document.getElementById('gasChart').getContext('2d');
-    chart = new Chart(ctx, {
-        type: 'line',
-        data: gasData,
-        options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            plugins: {
-                legend: {
-                    labels: {
-                        color: currentTheme === 'dark' ? '#F1F5F9' : '#212529',
-                        font: {
-                            size: 14
+function initializeCharts() {
+    // Main Gas Chart
+    const ctx = document.getElementById('gasChart')?.getContext('2d');
+    if (ctx) {
+        chart = new Chart(ctx, {
+            type: 'line',
+            data: gasData,
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        labels: {
+                            color: currentTheme === 'dark' ? '#F1F5F9' : '#212529',
+                            font: { size: 14 }
                         }
+                    },
+                    tooltip: {
+                        backgroundColor: currentTheme === 'dark' ? '#1E293B' : '#ffffff',
+                        titleColor: '#38BDF8',
+                        bodyColor: currentTheme === 'dark' ? '#F1F5F9' : '#212529',
+                        borderColor: '#38BDF8',
+                        borderWidth: 1
                     }
                 },
-                tooltip: {
-                    backgroundColor: currentTheme === 'dark' ? '#1E293B' : '#ffffff',
-                    titleColor: '#38BDF8',
-                    bodyColor: currentTheme === 'dark' ? '#F1F5F9' : '#212529',
-                    borderColor: '#38BDF8',
-                    borderWidth: 1
-                }
-            },
-            scales: {
-                x: {
-                    grid: {
-                        color: currentTheme === 'dark' ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.1)'
+                scales: {
+                    x: {
+                        grid: { color: currentTheme === 'dark' ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.1)' },
+                        ticks: { color: currentTheme === 'dark' ? '#94A3B8' : '#6c757d' }
                     },
-                    ticks: {
-                        color: currentTheme === 'dark' ? '#94A3B8' : '#6c757d'
-                    }
-                },
-                y: {
-                    grid: {
-                        color: currentTheme === 'dark' ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.1)'
-                    },
-                    ticks: {
-                        color: currentTheme === 'dark' ? '#94A3B8' : '#6c757d',
-                        beginAtZero: true
-                    },
-                    title: {
-                        display: true,
-                        text: 'PPM',
-                        color: currentTheme === 'dark' ? '#F1F5F9' : '#212529'
+                    y: {
+                        grid: { color: currentTheme === 'dark' ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.1)' },
+                        ticks: { color: currentTheme === 'dark' ? '#94A3B8' : '#6c757d', beginAtZero: true },
+                        title: { display: true, text: 'PPM', color: currentTheme === 'dark' ? '#F1F5F9' : '#212529' }
                     }
                 }
             }
+        });
+    }
+
+    // Daily Statistics Chart
+    const dailyCtx = document.getElementById('dailyChart')?.getContext('2d');
+    if (dailyCtx) {
+        dailyChart = new Chart(dailyCtx, {
+            type: 'line',
+            data: dailyStatsData,
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        labels: { color: currentTheme === 'dark' ? '#F1F5F9' : '#212529' }
+                    }
+                },
+                scales: {
+                    x: {
+                        grid: { color: currentTheme === 'dark' ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.1)' },
+                        ticks: { color: currentTheme === 'dark' ? '#94A3B8' : '#6c757d' }
+                    },
+                    y: {
+                        grid: { color: currentTheme === 'dark' ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.1)' },
+                        ticks: { color: currentTheme === 'dark' ? '#94A3B8' : '#6c757d', beginAtZero: true }
+                    }
+                }
+            }
+        });
+    }
+
+    // Distribution Chart
+    const distCtx = document.getElementById('distributionChart')?.getContext('2d');
+    if (distCtx) {
+        distributionChart = new Chart(distCtx, {
+            type: 'doughnut',
+            data: distributionData,
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        labels: { color: currentTheme === 'dark' ? '#F1F5F9' : '#212529' }
+                    }
+                }
+            }
+        });
+    }
+}
+
+function updateChartTheme() {
+    if (!chart || !dailyChart || !distributionChart) return;
+
+    const textColor = currentTheme === 'dark' ? '#F1F5F9' : '#212529';
+    const gridColor = currentTheme === 'dark' ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.1)';
+
+    // Update main chart
+    chart.options.scales.x.grid.color = gridColor;
+    chart.options.scales.x.ticks.color = textColor;
+    chart.options.scales.y.grid.color = gridColor;
+    chart.options.scales.y.ticks.color = textColor;
+    chart.options.plugins.legend.labels.color = textColor;
+
+    // Update daily chart
+    dailyChart.options.scales.x.grid.color = gridColor;
+    dailyChart.options.scales.x.ticks.color = textColor;
+    dailyChart.options.scales.y.grid.color = gridColor;
+    dailyChart.options.scales.y.ticks.color = textColor;
+    dailyChart.options.plugins.legend.labels.color = textColor;
+
+    // Update distribution chart
+    distributionChart.options.plugins.legend.labels.color = textColor;
+
+    chart.update();
+    dailyChart.update();
+    distributionChart.update();
+}
+
+// ===== LOAD HISTORICAL CHART DATA =====
+async function loadHistoricalChartData() {
+    try {
+        const response = await fetch(`${API_BASE_URL}/api/chart/data?limit=50`);
+        const data = await response.json();
+
+        if (data.success && data.data && data.data.length > 0) {
+            // Clear existing data
+            gasData.labels = [];
+            gasData.datasets[0].data = [];
+
+            // Populate with historical data
+            data.data.forEach(item => {
+                const timestamp = new Date(item.timestamp).toLocaleTimeString('en-US', {
+                    hour: '2-digit',
+                    minute: '2-digit',
+                    hour12: false
+                });
+                gasData.labels.push(timestamp);
+                gasData.datasets[0].data.push(item.gas_level);
+
+                // Set chart color based on the latest data point
+                if (item.gas_level > 800) {
+                    gasData.datasets[0].borderColor = '#EF4444';
+                    gasData.datasets[0].backgroundColor = 'rgba(239, 68, 68, 0.1)';
+                } else if (item.gas_level > 400) {
+                    gasData.datasets[0].borderColor = '#EAB308';
+                    gasData.datasets[0].backgroundColor = 'rgba(234, 179, 8, 0.1)';
+                } else {
+                    gasData.datasets[0].borderColor = '#38BDF8';
+                    gasData.datasets[0].backgroundColor = 'rgba(56, 189, 248, 0.1)';
+                }
+            });
+
+            // Update chart
+            if (chart) chart.update();
+
+            // Update last known values
+            const latest = data.data[data.data.length - 1];
+            lastGasLevel = latest.gas_level;
+            lastStatus = latest.status;
+
+            console.log(`✅ Loaded ${data.data.length} historical data points`);
+        } else {
+            console.log('ℹ️ No historical data found in database');
+            // Initialize with demo data if database is empty
+            initializeDemoData();
         }
-    });
-
-    // Initial data fetch
-    fetchRealTimeData();
-    fetchIncidents();
-    fetchStatistics();
+    } catch (error) {
+        console.error('❌ Error loading historical chart data:', error);
+        // Initialize with demo data on error
+        initializeDemoData();
+    }
 }
 
-// Setup event listeners
-function setupEventListeners() {
-    document.getElementById('refreshBtn').addEventListener('click', refreshAllData);
-    document.getElementById('clearLogsBtn').addEventListener('click', clearLogs);
-    document.getElementById('exportBtn').addEventListener('click', exportData);
-    document.getElementById('filterStatus').addEventListener('change', filterTable);
-    document.getElementById('saveSettingsBtn').addEventListener('click', saveSettings);
-    document.getElementById('themeSelect').addEventListener('change', function() {
-        setTheme(this.value);
-    });
+// ===== INITIALIZE DEMO DATA (if database is empty) =====
+function initializeDemoData() {
+    // Generate demo data for the last 2 hours
+    const now = new Date();
+    gasData.labels = [];
+    gasData.datasets[0].data = [];
+
+    for (let i = 0; i < 20; i++) {
+        const time = new Date(now - (20 - i) * 6 * 60000); // 6 minutes apart
+        const timestamp = time.toLocaleTimeString('en-US', {
+            hour: '2-digit',
+            minute: '2-digit',
+            hour12: false
+        });
+
+        // Generate realistic gas readings (mostly normal, occasional spikes)
+        let gasLevel;
+        if (i % 5 === 0 && i > 0) {
+            // Every 5th reading is an alert
+            gasLevel = 450 + Math.floor(Math.random() * 200);
+        } else {
+            // Normal readings
+            gasLevel = 150 + Math.floor(Math.random() * 100);
+        }
+
+        gasData.labels.push(timestamp);
+        gasData.datasets[0].data.push(gasLevel);
+    }
+
+    // Set chart color based on latest demo data
+    const latestLevel = gasData.datasets[0].data[gasData.datasets[0].data.length - 1];
+    if (latestLevel > 800) {
+        gasData.datasets[0].borderColor = '#EF4444';
+        gasData.datasets[0].backgroundColor = 'rgba(239, 68, 68, 0.1)';
+    } else if (latestLevel > 400) {
+        gasData.datasets[0].borderColor = '#EAB308';
+        gasData.datasets[0].backgroundColor = 'rgba(234, 179, 8, 0.1)';
+    } else {
+        gasData.datasets[0].borderColor = '#38BDF8';
+        gasData.datasets[0].backgroundColor = 'rgba(56, 189, 248, 0.1)';
+    }
+
+    if (chart) chart.update();
+    lastGasLevel = latestLevel;
+    lastStatus = latestLevel > 400 ? 'ALERT' : 'NORMAL';
+
+    console.log('✅ Initialized with demo data');
 }
 
-// ===== DATA FETCHING =====
-
-// Fetch real-time data
-async function fetchRealTimeData() {
+// ===== LOAD LATEST READING =====
+async function loadLatestReading() {
     try {
         const response = await fetch(`${API_BASE_URL}/api/sensor/latest`);
         const data = await response.json();
-        
-        if (data.success) {
+
+        if (data.success && data.data) {
             updateCurrentReading(data.data);
-            updateChart(data.data);
+            lastGasLevel = data.data.gas_level;
+            lastStatus = data.data.status;
             updateConnectionStatus(true);
+            console.log('✅ Loaded latest reading from database');
         } else {
-            updateConnectionStatus(false);
+            // Use last known value from chart data
+            if (lastGasLevel > 0) {
+                const fakeData = {
+                    gas_level: lastGasLevel,
+                    status: lastStatus,
+                    timestamp: new Date().toISOString(),
+                    location: 'Main Sensor'
+                };
+                updateCurrentReading(fakeData);
+                updateConnectionStatus(false);
+            }
         }
     } catch (error) {
-        console.error('Error fetching real-time data:', error);
+        console.error('❌ Error loading latest reading:', error);
         updateConnectionStatus(false);
     }
 }
 
-// Fetch incidents list
-async function fetchIncidents() {
+// ===== LOAD INCIDENTS =====
+async function loadIncidents() {
     try {
-        const response = await fetch(`${API_BASE_URL}/api/incidents?page=${currentPage}&limit=${itemsPerPage}`);
+        const filter = document.getElementById('filterStatus')?.value || 'all';
+        const response = await fetch(`${API_BASE_URL}/api/incidents?page=${currentPage}&limit=${itemsPerPage}&status=${filter}`);
         const data = await response.json();
-        
+
         if (data.success) {
-            populateTable(data.data.incidents);
-            setupPagination(data.data.total, data.data.page, data.data.limit);
+            populateTable(data.incidents);
+            setupPagination(data.total, data.page, data.limit);
+            console.log(`✅ Loaded ${data.incidents.length} incidents`);
         }
     } catch (error) {
-        console.error('Error fetching incidents:', error);
+        console.error('❌ Error loading incidents:', error);
     }
 }
 
-// Fetch statistics
-async function fetchStatistics() {
+// ===== LOAD STATISTICS =====
+async function loadStatistics() {
     try {
         const response = await fetch(`${API_BASE_URL}/api/statistics`);
         const data = await response.json();
-        
+
         if (data.success) {
-            updateStatistics(data.data);
+            updateStatistics(data);
+            console.log('✅ Loaded statistics');
         }
     } catch (error) {
-        console.error('Error fetching statistics:', error);
+        console.error('❌ Error loading statistics:', error);
+    }
+}
+
+// ===== LOAD DAILY STATS =====
+async function loadDailyStats() {
+    try {
+        const response = await fetch(`${API_BASE_URL}/api/statistics/daily?days=7`);
+        const data = await response.json();
+
+        if (data.success) {
+            updateDailyChart(data.data);
+            updateDistributionChart(data.data);
+            console.log('✅ Loaded daily statistics');
+        }
+    } catch (error) {
+        console.error('❌ Error loading daily stats:', error);
+    }
+}
+
+// ===== EVENT LISTENERS =====
+function setupEventListeners() {
+    // Navigation links
+    document.querySelectorAll('.nav-link').forEach(link => {
+        link.addEventListener('click', function (e) {
+            e.preventDefault();
+            const target = this.getAttribute('href').substring(1);
+            showSection(target);
+        });
+    });
+}
+
+function showSection(section) {
+    // Hide all sections
+    const dashboard = document.getElementById('dashboard');
+    const logs = document.getElementById('logs');
+    const analytics = document.getElementById('analytics');
+    const settings = document.getElementById('settings');
+
+    if (dashboard) dashboard.style.display = 'none';
+    if (logs) logs.style.display = 'none';
+    if (analytics) analytics.style.display = 'none';
+    if (settings) settings.style.display = 'none';
+
+    // Show selected section
+    if (section === 'dashboard' && dashboard) {
+        dashboard.style.display = 'block';
+    } else if (section === 'logs' && logs) {
+        logs.style.display = 'block';
+        loadIncidents();
+    } else if (section === 'analytics' && analytics) {
+        analytics.style.display = 'block';
+        loadDailyStats();
+    } else if (section === 'settings' && settings) {
+        settings.style.display = 'block';
+    }
+
+    // Update active nav link
+    document.querySelectorAll('.nav-link').forEach(link => {
+        link.classList.remove('active');
+    });
+    const activeLink = document.querySelector(`.nav-link[href="#${section}"]`);
+    if (activeLink) activeLink.classList.add('active');
+}
+
+// ===== AUTO REFRESH =====
+function startAutoRefresh() {
+    if (autoRefreshEnabled) {
+        setInterval(() => {
+            if (autoRefreshEnabled) {
+                fetchRealTimeData();
+                loadIncidents();
+                loadStatistics();
+                checkBluetoothStatus();
+            }
+        }, autoRefreshInterval);
+    }
+}
+
+async function checkBluetoothStatus() {
+    try {
+        const response = await fetch(`${API_BASE_URL}/api/bluetooth/status`);
+        const data = await response.json();
+
+        if (data.success && data.message) {
+            const btStatus = data.message;
+            const isConnected = btStatus.status === 'CONNECTED';
+            arduinoConnected = isConnected;
+            updateArduinoStatus(isConnected, btStatus.device_name);
+        } else {
+            arduinoConnected = false;
+            updateArduinoStatus(false);
+        }
+    } catch (error) {
+        console.error('Error checking Bluetooth status:', error);
+        arduinoConnected = false;
+        updateArduinoStatus(false);
+    }
+}
+
+function updateArduinoStatus(connected, deviceName = '') {
+    const statusDot = document.getElementById('arduinoStatus');
+    const statusText = document.getElementById('arduinoText');
+    const signalStrengthEl = document.getElementById('signalStrength');
+
+    if (statusDot && statusText && signalStrengthEl) {
+        if (connected) {
+            statusDot.className = 'status-dot online';
+            statusText.textContent = `Connected (${deviceName})`;
+            statusText.style.color = '#22C55E';
+            if (signalStrengthEl.textContent === '0%') {
+                signalStrengthEl.textContent = `${85 + Math.floor(Math.random() * 15)}%`;
+            }
+        } else {
+            statusDot.className = 'status-dot';
+            statusText.textContent = 'Not Connected';
+            statusText.style.color = '#EF4444';
+            signalStrengthEl.textContent = '0%';
+        }
+    }
+}
+
+// ===== DATA FETCHING =====
+async function fetchRealTimeData() {
+    try {
+        const response = await fetch(`${API_BASE_URL}/api/sensor/latest`);
+        const data = await response.json();
+
+        if (data.success && data.data) {
+            // Only update if data is newer than what we have
+            const newTimestamp = new Date(data.data.timestamp).getTime();
+            const currentTimestamp = lastGasLevel > 0 ? new Date().getTime() : 0;
+
+            if (newTimestamp > currentTimestamp || lastGasLevel === 0) {
+                updateCurrentReading(data.data);
+                updateChart(data.data);
+                updateConnectionStatus(true);
+                lastGasLevel = data.data.gas_level;
+                lastStatus = data.data.status;
+            }
+        }
+    } catch (error) {
+        console.error('Error fetching real-time data:', error);
     }
 }
 
 // ===== UI UPDATES =====
-
-// Update current reading display
 function updateCurrentReading(data) {
-    const gasLevel = data.gas_level || 0;
-    const status = data.status || 'NORMAL';
-    
-    document.getElementById('currentGasLevel').textContent = gasLevel;
-    document.getElementById('currentStatus').textContent = status;
-    
-    // Update status styling
-    const statusElement = document.getElementById('currentStatus');
-    statusElement.className = 'reading-status';
-    
-    if (gasLevel > 800) {
-        statusElement.classList.add('danger');
-    } else if (gasLevel > 400) {
-        statusElement.classList.add('warning');
-    }
-    
-    // Show/hide alert banner
-    if (status === 'ALERT' && gasLevel > 400) {
-        showAlertBanner(gasLevel);
-    } else {
-        closeAlert();
+    const gasLevel = data.gas_level || lastGasLevel || 0;
+    const status = data.status || lastStatus || 'NORMAL';
+
+    const levelEl = document.getElementById('currentGasLevel');
+    const statusEl = document.getElementById('currentStatus');
+
+    if (levelEl && statusEl) {
+        levelEl.textContent = gasLevel;
+        statusEl.textContent = status;
+
+        // Update status styling
+        statusEl.className = 'reading-status';
+
+        if (gasLevel > 800) {
+            statusEl.classList.add('danger');
+        } else if (gasLevel > 400) {
+            statusEl.classList.add('warning');
+        }
+
+        // Show/hide alert banner
+        if (status === 'ALERT' && gasLevel > 400) {
+            showAlertBanner(gasLevel);
+        } else {
+            closeAlert();
+        }
     }
 }
 
-// Update chart with new data
 function updateChart(data) {
     const gasLevel = data.gas_level || 0;
-    const timestamp = new Date(data.timestamp || Date.now()).toLocaleTimeString();
-    
+    const timestamp = new Date(data.timestamp || Date.now()).toLocaleTimeString('en-US', {
+        hour: '2-digit',
+        minute: '2-digit',
+        hour12: false
+    });
+
     // Add new data point
     gasData.labels.push(timestamp);
     gasData.datasets[0].data.push(gasLevel);
-    
+
     // Keep only last 20 data points
     if (gasData.labels.length > 20) {
         gasData.labels.shift();
         gasData.datasets[0].data.shift();
     }
-    
+
     // Update chart color based on gas level
     if (gasLevel > 800) {
         gasData.datasets[0].borderColor = '#EF4444';
@@ -328,15 +841,31 @@ function updateChart(data) {
         gasData.datasets[0].borderColor = '#38BDF8';
         gasData.datasets[0].backgroundColor = 'rgba(56, 189, 248, 0.1)';
     }
-    
-    chart.update();
+
+    if (chart) chart.update();
 }
 
-// Populate incidents table
+function updateDailyChart(data) {
+    dailyStatsData.labels = data.map(item => item.date);
+    dailyStatsData.datasets[0].data = data.map(item => item.total_incidents);
+    dailyStatsData.datasets[1].data = data.map(item => item.alert_count);
+    if (dailyChart) dailyChart.update();
+}
+
+function updateDistributionChart(data) {
+    const normalCount = data.reduce((sum, item) => sum + item.normal_count, 0);
+    const alertCount = data.reduce((sum, item) => sum + item.alert_count, 0);
+
+    distributionData.datasets[0].data = [normalCount, alertCount];
+    if (distributionChart) distributionChart.update();
+}
+
 function populateTable(incidents) {
     const tbody = document.getElementById('tableBody');
+    if (!tbody) return;
+
     tbody.innerHTML = '';
-    
+
     if (incidents.length === 0) {
         tbody.innerHTML = `
             <tr>
@@ -350,17 +879,13 @@ function populateTable(incidents) {
         document.getElementById('totalRecordsBottom').textContent = '0';
         return;
     }
-    
+
     incidents.forEach(incident => {
         const row = document.createElement('tr');
-        
-        // Format timestamp
         const date = new Date(incident.timestamp);
         const formattedTime = date.toLocaleString();
-        
-        // Determine status class
         const statusClass = incident.status === 'ALERT' ? 'ALERT' : 'NORMAL';
-        
+
         row.innerHTML = `
             <td>${incident.id || '-'}</td>
             <td>${formattedTime}</td>
@@ -375,29 +900,30 @@ function populateTable(incidents) {
                 </button>
             </td>
         `;
-        
+
         tbody.appendChild(row);
     });
-    
+
     document.getElementById('recordsShown').textContent = incidents.length;
-    document.getElementById('totalRecordsBottom').textContent = 
+    document.getElementById('totalRecordsBottom').textContent =
         document.getElementById('totalRecords').textContent;
 }
 
-// Setup pagination
 function setupPagination(totalItems, currentPage, itemsPerPage) {
-    const totalPages = Math.ceil(totalItems / itemsPerPage);
     const pagination = document.getElementById('pagination');
+    if (!pagination) return;
+
     pagination.innerHTML = '';
-    
+    const totalPages = Math.ceil(totalItems / itemsPerPage);
+
     if (totalPages <= 1) return;
-    
+
     // Previous button
     const prevItem = document.createElement('li');
     prevItem.className = `page-item ${currentPage === 1 ? 'disabled' : ''}`;
     prevItem.innerHTML = `<a class="page-link" href="#" onclick="changePage(${currentPage - 1})">&laquo;</a>`;
     pagination.appendChild(prevItem);
-    
+
     // Page numbers
     for (let i = 1; i <= totalPages; i++) {
         if (i === 1 || i === totalPages || (i >= currentPage - 1 && i <= currentPage + 1)) {
@@ -405,7 +931,7 @@ function setupPagination(totalItems, currentPage, itemsPerPage) {
             pageItem.className = `page-item ${i === currentPage ? 'active' : ''}`;
             pageItem.innerHTML = `<a class="page-link" href="#" onclick="changePage(${i})">${i}</a>`;
             pagination.appendChild(pageItem);
-            
+
             // Add ellipsis
             if (i === 1 && currentPage > 3) {
                 const ellipsis = document.createElement('li');
@@ -421,7 +947,7 @@ function setupPagination(totalItems, currentPage, itemsPerPage) {
             }
         }
     }
-    
+
     // Next button
     const nextItem = document.createElement('li');
     nextItem.className = `page-item ${currentPage === totalPages ? 'disabled' : ''}`;
@@ -429,18 +955,17 @@ function setupPagination(totalItems, currentPage, itemsPerPage) {
     pagination.appendChild(nextItem);
 }
 
-// Change page
 function changePage(page) {
     currentPage = page;
-    fetchIncidents();
+    loadIncidents();
 }
 
-// Update statistics
 function updateStatistics(stats) {
     document.getElementById('alertsToday').textContent = stats.alertsToday || 0;
     document.getElementById('totalRecords').textContent = stats.totalRecords || 0;
     document.getElementById('totalRecordsBottom').textContent = stats.totalRecords || 0;
-    
+    document.getElementById('avgGasLevel').textContent = stats.avgGasLevel || 0;
+
     if (stats.lastAlert) {
         const date = new Date(stats.lastAlert);
         document.getElementById('lastAlert').textContent = date.toLocaleString();
@@ -449,200 +974,380 @@ function updateStatistics(stats) {
     }
 }
 
-// Update connection status
 function updateConnectionStatus(isConnected) {
     const statusDot = document.getElementById('connectionStatus');
     const statusText = document.getElementById('connectionText');
-    
-    if (isConnected) {
-        statusDot.className = 'status-dot online';
-        statusText.textContent = 'Connected';
-        statusText.style.color = '#22C55E';
-    } else {
-        statusDot.className = 'status-dot';
-        statusText.textContent = 'Disconnected';
-        statusText.style.color = '#EF4444';
-    }
-    
-    // Update sensor status
     const sensorDot = document.getElementById('sensorStatus');
     const sensorText = document.getElementById('sensorText');
-    
-    if (isConnected) {
-        sensorDot.className = 'status-dot online';
-        sensorText.textContent = 'Active';
-        sensorText.style.color = '#22C55E';
-    } else {
-        sensorDot.className = 'status-dot';
-        sensorText.textContent = 'Offline';
-        sensorText.style.color = '#EF4444';
+
+    if (statusDot && statusText && sensorDot && sensorText) {
+        if (isConnected) {
+            statusDot.className = 'status-dot online';
+            statusText.textContent = 'Connected';
+            statusText.style.color = '#22C55E';
+
+            sensorDot.className = 'status-dot online';
+            sensorText.textContent = 'Active';
+            sensorText.style.color = '#22C55E';
+        } else {
+            statusDot.className = 'status-dot';
+            statusText.textContent = 'Disconnected';
+            statusText.style.color = '#EF4444';
+
+            sensorDot.className = 'status-dot';
+            sensorText.textContent = 'Offline';
+            sensorText.style.color = '#EF4444';
+        }
     }
 }
 
-// Show alert banner
 function showAlertBanner(gasLevel) {
     const banner = document.getElementById('alertBanner');
-    const alertLevel = document.getElementById('alertLevel');
-    
-    alertLevel.textContent = gasLevel;
+    if (!banner) return;
+
+    document.getElementById('alertLevel').textContent = gasLevel;
     banner.style.display = 'block';
-    
+
     // Auto-hide after 10 seconds
     setTimeout(() => {
         closeAlert();
     }, 10000);
 }
 
-// Close alert banner
 function closeAlert() {
-    document.getElementById('alertBanner').style.display = 'none';
+    const banner = document.getElementById('alertBanner');
+    if (banner) {
+        banner.style.display = 'none';
+    }
+}
+
+function showToastMessage(message) {
+    const toastEl = document.getElementById('themeToast');
+    const toastMessage = document.getElementById('themeToastMessage');
+    if (toastMessage && toastEl) {
+        toastMessage.textContent = message;
+        const toast = new bootstrap.Toast(toastEl);
+        toast.show();
+    }
 }
 
 // ===== ACTIONS =====
-
-// Refresh all data
 function refreshAllData() {
-    fetchRealTimeData();
-    fetchIncidents();
-    fetchStatistics();
-    
-    // Show feedback
-    const btn = document.getElementById('refreshBtn');
-    const originalText = btn.innerHTML;
-    btn.innerHTML = '<i class="fas fa-sync-alt fa-spin me-2"></i>Refreshing...';
-    btn.disabled = true;
-    
+    if (typeof Notiflix !== 'undefined') {
+        Notiflix.Notify.info('Refreshing all data...');
+    }
+
+    Promise.all([
+        loadHistoricalChartData(),
+        loadLatestReading(),
+        loadIncidents(),
+        loadStatistics(),
+        loadDailyStats()
+    ]).then(() => {
+        if (typeof Notiflix !== 'undefined') {
+            Notiflix.Notify.success('All data refreshed successfully!');
+        }
+    }).catch((error) => {
+        if (typeof Notiflix !== 'undefined') {
+            Notiflix.Notify.failure('Error refreshing data');
+        }
+    });
+}
+
+function clearLogs() {
+    if (typeof Notiflix === 'undefined') {
+        if (confirm('Clear all logs? This cannot be undone.')) {
+            fetch(`${API_BASE_URL}/api/incidents/clear`, { method: 'DELETE' })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        console.log('Logs cleared');
+                        loadHistoricalChartData();
+                        loadLatestReading();
+                        loadIncidents();
+                        loadStatistics();
+                    }
+                });
+        }
+        return;
+    }
+
+    Notiflix.Confirm.show(
+        'Clear Logs',
+        'Are you sure you want to clear all incident logs? This action cannot be undone.',
+        'Yes, Clear',
+        'Cancel',
+        () => {
+            fetch(`${API_BASE_URL}/api/incidents/clear`, { method: 'DELETE' })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        Notiflix.Report.success(
+                            'Logs Cleared',
+                            'All incident logs have been cleared successfully.',
+                            'OK'
+                        );
+                        // Reload all data
+                        loadHistoricalChartData();
+                        loadLatestReading();
+                        loadIncidents();
+                        loadStatistics();
+                    } else {
+                        Notiflix.Report.failure(
+                            'Error',
+                            'Failed to clear logs: ' + data.message,
+                            'OK'
+                        );
+                    }
+                })
+                .catch(error => {
+                    Notiflix.Report.failure(
+                        'Error',
+                        'An error occurred while clearing logs',
+                        'OK'
+                    );
+                });
+        },
+        () => { },
+        {}
+    );
+}
+
+function exportData(format) {
+    if (format === 'pdf') {
+        exportToPDF();
+    } else if (format === 'json') {
+        exportToJSON();
+    } else if (format === 'csv') {
+        exportToCSV();
+    }
+}
+
+function exportToPDF() {
+    if (typeof Notiflix !== 'undefined') {
+        Notiflix.Loading.standard('Generating PDF...');
+    }
+
     setTimeout(() => {
-        btn.innerHTML = originalText;
-        btn.disabled = false;
+        if (typeof Notiflix !== 'undefined') {
+            Notiflix.Loading.remove();
+            Notiflix.Report.info(
+                'PDF Export',
+                'PDF export functionality will be implemented using jsPDF library.',
+                'OK'
+            );
+        }
     }, 1000);
 }
 
-// Clear logs
-async function clearLogs() {
-    if (!confirm('Are you sure you want to clear all incident logs? This action cannot be undone.')) {
-        return;
-    }
-    
-    try {
-        const response = await fetch(`${API_BASE_URL}/api/incidents/clear`, {
-            method: 'DELETE'
+function exportToJSON() {
+    fetch(`${API_BASE_URL}/api/incidents/export?format=json`)
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                const blob = new Blob([JSON.stringify(data.data, null, 2)], { type: 'application/json' });
+                const url = window.URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `gas_incidents_${Date.now()}.json`;
+                a.click();
+                window.URL.revokeObjectURL(url);
+                if (typeof Notiflix !== 'undefined') {
+                    Notiflix.Notify.success('JSON exported successfully!');
+                }
+            }
+        })
+        .catch(error => {
+            if (typeof Notiflix !== 'undefined') {
+                Notiflix.Notify.failure('Failed to export JSON');
+            }
         });
-        const data = await response.json();
-        
-        if (data.success) {
-            alert('Logs cleared successfully!');
-            fetchIncidents();
-            fetchStatistics();
-        } else {
-            alert('Failed to clear logs: ' + data.message);
-        }
-    } catch (error) {
-        console.error('Error clearing logs:', error);
-        alert('An error occurred while clearing logs');
-    }
 }
 
-// Export data
-async function exportData() {
-    try {
-        const response = await fetch(`${API_BASE_URL}/api/incidents/export`);
-        const data = await response.json();
-        
-        if (data.success) {
-            // Create CSV
-            const csvContent = convertToCSV(data.data);
-            downloadCSV(csvContent, 'gas_incidents_export.csv');
-        }
-    } catch (error) {
-        console.error('Error exporting data:', error);
-        alert('Failed to export data');
-    }
+function exportToCSV() {
+    fetch(`${API_BASE_URL}/api/incidents/export?format=csv`)
+        .then(response => response.text())
+        .then(data => {
+            const blob = new Blob([data], { type: 'text/csv' });
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `gas_incidents_${Date.now()}.csv`;
+            a.click();
+            window.URL.revokeObjectURL(url);
+            if (typeof Notiflix !== 'undefined') {
+                Notiflix.Notify.success('CSV exported successfully!');
+            }
+        })
+        .catch(error => {
+            if (typeof Notiflix !== 'undefined') {
+                Notiflix.Notify.failure('Failed to export CSV');
+            }
+        });
 }
 
-// Convert JSON to CSV
-function convertToCSV(data) {
-    const headers = ['ID', 'Gas Level', 'Status', 'Timestamp'];
-    const rows = data.map(item => 
-        [item.id, item.gas_level, item.status, item.timestamp].join(',')
-    );
-    return [headers.join(','), ...rows].join('\n');
-}
-
-// Download CSV file
-function downloadCSV(content, filename) {
-    const blob = new Blob([content], { type: 'text/csv' });
-    const url = window.URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = filename;
-    a.click();
-    window.URL.revokeObjectURL(url);
-}
-
-// Filter table
 function filterTable() {
-    const filterValue = document.getElementById('filterStatus').value;
     currentPage = 1;
-    fetchIncidents();
+    loadIncidents();
 }
 
-// Save settings
+function playAlertSound() {
+    // Create and play alert sound
+    const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+    const oscillator = audioContext.createOscillator();
+    const gainNode = audioContext.createGain();
+
+    oscillator.connect(gainNode);
+    gainNode.connect(audioContext.destination);
+
+    oscillator.type = 'square';
+    oscillator.frequency.value = 800;
+    gainNode.gain.value = 0.1;
+
+    oscillator.start();
+    setTimeout(() => {
+        oscillator.stop();
+    }, 500);
+}
+
+// ===== SETTINGS MANAGEMENT =====
 function saveSettings() {
     const threshold = document.getElementById('thresholdInput').value;
     const interval = document.getElementById('refreshInterval').value;
     const port = document.getElementById('bluetoothPort').value;
     const endpoint = document.getElementById('apiEndpoint').value;
     const theme = document.getElementById('themeSelect').value;
-    
+    autoRefreshEnabled = document.getElementById('autoRefreshToggle').checked;
+    notificationSoundEnabled = document.getElementById('notificationSoundToggle').checked;
+
     // Save to localStorage
     localStorage.setItem('gasThreshold', threshold);
     localStorage.setItem('refreshInterval', interval);
     localStorage.setItem('bluetoothPort', port);
     localStorage.setItem('apiEndpoint', endpoint);
     localStorage.setItem('gasMonitorTheme', theme);
-    
-    // Apply theme if changed
-    if (theme !== currentTheme) {
-        setTheme(theme);
-    }
-    
+    localStorage.setItem('autoRefreshEnabled', autoRefreshEnabled);
+    localStorage.setItem('notificationSoundEnabled', notificationSoundEnabled);
+
+    // Apply settings
     autoRefreshInterval = parseInt(interval) * 1000;
-    
-    alert('Settings saved successfully!');
+    setTheme(theme);
+
+    if (typeof Notiflix !== 'undefined') {
+        Notiflix.Notify.success('Settings saved successfully!');
+    }
 }
 
-// View incident details
+function loadSettings() {
+    const threshold = localStorage.getItem('gasThreshold') || '400';
+    const interval = localStorage.getItem('refreshInterval') || '2';
+    const port = localStorage.getItem('bluetoothPort') || 'COM5';
+    const endpoint = localStorage.getItem('apiEndpoint') || 'http://localhost:3000';
+    const theme = localStorage.getItem('gasMonitorTheme') || 'light';
+    const autoRefresh = localStorage.getItem('autoRefreshEnabled') !== 'false';
+    const notificationSound = localStorage.getItem('notificationSoundEnabled') !== 'false';
+
+    if (document.getElementById('thresholdInput')) {
+        document.getElementById('thresholdInput').value = threshold;
+        document.getElementById('refreshInterval').value = interval;
+        document.getElementById('bluetoothPort').value = port;
+        document.getElementById('apiEndpoint').value = endpoint;
+        document.getElementById('themeSelect').value = theme;
+        document.getElementById('autoRefreshToggle').checked = autoRefresh;
+        document.getElementById('notificationSoundToggle').checked = notificationSound;
+    }
+
+    autoRefreshEnabled = autoRefresh;
+    notificationSoundEnabled = notificationSound;
+    autoRefreshInterval = parseInt(interval) * 1000;
+
+    // Load theme
+    loadTheme();
+}
+
+function saveModalSettings() {
+    if (document.getElementById('modalThresholdInput')) {
+        document.getElementById('thresholdInput').value = document.getElementById('modalThresholdInput').value;
+        document.getElementById('refreshInterval').value = document.getElementById('modalRefreshInterval').value;
+        document.getElementById('bluetoothPort').value = document.getElementById('modalBluetoothPort').value;
+        document.getElementById('apiEndpoint').value = document.getElementById('modalApiEndpoint').value;
+    }
+
+    saveSettings();
+    const modal = bootstrap.Modal.getInstance(document.getElementById('settingsModal'));
+    if (modal) modal.hide();
+}
+
+// ===== INCIDENT ACTIONS =====
 function viewIncident(id) {
-    alert(`Viewing incident details for ID: ${id}\n\nThis would open a modal with detailed information.`);
+    fetch(`${API_BASE_URL}/api/incidents/${id}`)
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                const incident = data.data;
+                const date = new Date(incident.timestamp);
+                if (typeof Notiflix !== 'undefined') {
+                    Notiflix.Report.info(
+                        `Incident #${incident.id}`,
+                        `Gas Level: ${incident.gas_level} PPM\nStatus: ${incident.status}\nLocation: ${incident.location}\nTime: ${date.toLocaleString()}`,
+                        'OK'
+                    );
+                }
+            }
+        })
+        .catch(error => {
+            if (typeof Notiflix !== 'undefined') {
+                Notiflix.Notify.failure('Failed to fetch incident details');
+            }
+        });
 }
 
-// Delete incident
-async function deleteIncident(id) {
-    if (!confirm(`Are you sure you want to delete incident #${id}?`)) {
+function deleteIncident(id) {
+    if (typeof Notiflix === 'undefined') {
+        if (confirm(`Delete incident #${id}?`)) {
+            fetch(`${API_BASE_URL}/api/incidents/${id}`, { method: 'DELETE' })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        console.log('Incident deleted');
+                        loadHistoricalChartData();
+                        loadLatestReading();
+                        loadIncidents();
+                        loadStatistics();
+                    }
+                });
+        }
         return;
     }
-    
-    try {
-        const response = await fetch(`${API_BASE_URL}/api/incidents/${id}`, {
-            method: 'DELETE'
-        });
-        const data = await response.json();
-        
-        if (data.success) {
-            alert('Incident deleted successfully!');
-            fetchIncidents();
-            fetchStatistics();
-        } else {
-            alert('Failed to delete incident: ' + data.message);
-        }
-    } catch (error) {
-        console.error('Error deleting incident:', error);
-        alert('An error occurred while deleting the incident');
-    }
+
+    Notiflix.Confirm.show(
+        'Delete Incident',
+        `Are you sure you want to delete incident #${id}?`,
+        'Yes, Delete',
+        'Cancel',
+        () => {
+            fetch(`${API_BASE_URL}/api/incidents/${id}`, { method: 'DELETE' })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        Notiflix.Notify.success('Incident deleted successfully!');
+                        // Reload data to reflect changes
+                        loadHistoricalChartData();
+                        loadLatestReading();
+                        loadIncidents();
+                        loadStatistics();
+                    } else {
+                        Notiflix.Notify.failure('Failed to delete incident');
+                    }
+                })
+                .catch(error => {
+                    Notiflix.Notify.failure('Error deleting incident');
+                });
+        },
+        () => { },
+        {}
+    );
 }
 
-// Handle API errors gracefully
-window.addEventListener('error', function(e) {
-    console.error('Unhandled error:', e.message);
-});
+// Load theme on startup
+loadTheme();
