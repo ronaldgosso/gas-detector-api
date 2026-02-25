@@ -36,10 +36,11 @@ router.get('/sensor/latest', async (req, res) => {
         if (result.length === 0) {
             return res.json({
                 success: true,
-                gas_level: 0,
-                status: 'NORMAL',
-                timestamp: new Date().toISOString()
-
+                data: {
+                    gas_level: 0,
+                    status: 'NORMAL',
+                    timestamp: new Date().toISOString()
+                }
             });
         }
 
@@ -172,7 +173,7 @@ router.post('/incidents', [
 
         res.status(201).json({
             success: true,
-            message: newIncident[0]
+            data: newIncident[0]
         });
     } catch (error) {
         res.status(500).json({
@@ -390,7 +391,7 @@ router.get('/incidents/export', async (req, res) => {
             // JSON format (default)
             res.json({
                 success: true,
-                results,
+                data: results,
                 count: results.length,
                 exportedAt: new Date().toISOString()
             });
@@ -418,7 +419,7 @@ router.get('/settings', async (req, res) => {
 
         res.json({
             success: true,
-            settings
+            data: settings
         });
     } catch (error) {
         res.status(500).json({
@@ -482,7 +483,7 @@ router.get('/logs', async (req, res) => {
 
         res.json({
             success: true,
-            results
+            data: results
         });
     } catch (error) {
         res.status(500).json({
@@ -560,7 +561,7 @@ router.get('/statistics/daily', async (req, res) => {
 
         res.json({
             success: true,
-            result
+            data: result
         });
     } catch (error) {
         res.status(500).json({
@@ -598,7 +599,7 @@ router.get('/chart/data', async (req, res) => {
 
         res.json({
             success: true,
-            result
+            data: result
         });
     } catch (error) {
         res.status(500).json({
