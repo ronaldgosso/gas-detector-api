@@ -19,10 +19,10 @@ let dbConnection;
 async function initDatabase() {
     try {
         dbConnection = await mysql.createConnection(DB_CONFIG);
-        console.log('✅ Database connected successfully');
+        console.log('Database connected successfully');
         return true;
     } catch (error) {
-        console.error('❌ Database connection failed:', error.message);
+        console.error('Database connection failed:', error.message);
         return false;
     }
 }
@@ -44,11 +44,11 @@ async function logIncident(gasLevel, status) {
         );
         
         const timestamp = new Date().toLocaleTimeString();
-        console.log(`[${timestamp}] ✅ Logged: Level=${gasLevel}, Status=${status}, ID=${result.insertId}`);
+        console.log(`[${timestamp}]  Logged: Level=${gasLevel}, Status=${status}, ID=${result.insertId}`);
         
         return true;
     } catch (error) {
-        console.error('❌ Error logging incident:', error.message);
+        console.error('Error logging incident:', error.message);
         return false;
     }
 }

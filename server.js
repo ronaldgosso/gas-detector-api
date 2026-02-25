@@ -33,7 +33,7 @@ app.get('/', (req, res) => {
             settings: '/api/settings',
             logs: '/api/logs',
             bluetooth: '/api/bluetooth/status',
-            chart: '/api/chart/data'
+            chart: '/apdatai/chart/'
         },
         documentation: 'See project documentation for full API details'
     });
