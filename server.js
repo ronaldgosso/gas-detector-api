@@ -64,20 +64,15 @@ async function startServer() {
         const dbConnected = await db.testConnection();
         
         if (!dbConnected) {
-            console.error('❌ Cannot start server without database connection');
+            console.error('Cannot start server without database connection');
             process.exit(1);
         }
         
         // Start server
         app.listen(PORT, () => {
-            console.log('\n╔═══════════════════════════════════════════════════════════╗');
-            console.log('║                                                           ║');
-            console.log('║   🚀 GAS LEAK DETECTION SYSTEM - API SERVER              ║');
-            console.log('║                                                           ║');
-            console.log('╚═══════════════════════════════════════════════════════════╝\n');
-            console.log('✅ Server running at:', `http://localhost:${PORT}`);
-            console.log('📊 API Base URL:', `http://localhost:${PORT}/api`);
-            console.log('📋 Available endpoints:');
+            console.log('Server running at:', `http://localhost:${PORT}`);
+            console.log('API Base URL:', `http://localhost:${PORT}/api`);
+            console.log('Available endpoints:');
             console.log('   • GET  /api/health              - Health check');
             console.log('   • GET  /api/sensor/latest       - Latest sensor reading');
             console.log('   • GET  /api/incidents           - List all incidents');
@@ -89,8 +84,6 @@ async function startServer() {
             console.log('   • GET  /api/logs                - System logs');
             console.log('   • GET  /api/bluetooth/status    - Bluetooth connection status');
             console.log('   • GET  /api/statistics/daily    - Daily statistics');
-            console.log('\n💡 Dashboard URL:', `http://localhost:${PORT}`);
-            console.log('   (Place your HTML/CSS/JS files in /public folder)\n');
         });
     } catch (error) {
         console.error('Failed to start server:', error.message);

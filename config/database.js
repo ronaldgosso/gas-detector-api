@@ -22,15 +22,15 @@ const pool = mysql.createPool(dbConfig);
 async function testConnection() {
     try {
         const connection = await pool.getConnection();
-        console.log('✅ Database connected successfully');
-        console.log(`   Host: ${dbConfig.host}:${dbConfig.port}`);
-        console.log(`   Database: ${dbConfig.database}`);
+        console.log('Database connected successfully');
+        console.log(`Host: ${dbConfig.host}:${dbConfig.port}`);
+        console.log(`Database: ${dbConfig.database}`);
         connection.release();
         return true;
     } catch (error) {
-        console.error('❌ Database connection failed:', error.message);
-        console.error('   Please ensure XAMPP MySQL is running');
-        console.error('   Check your .env file for correct credentials');
+        console.error('Database connection failed:', error.message);
+        console.error('Please ensure XAMPP MySQL is running');
+        console.error('Check your .env file for correct credentials');
         return false;
     }
 }
