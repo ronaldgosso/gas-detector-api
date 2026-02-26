@@ -4,6 +4,8 @@ const cors = require('cors');
 const bodyParser = require('body-parser');
 const db = require('./config/database');
 const apiRoutes = require('./routes/api');
+const emergencyContactRoutes = require('./routes/emergency-contact');
+
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -18,6 +20,7 @@ app.use(express.static('public'));
 
 // ===== API ROUTES =====
 app.use('/api', apiRoutes);
+app.use('/api/emergency-contact', emergencyContactRoutes);
 
 // ===== ROOT ENDPOINT =====
 app.get('/', (req, res) => {
@@ -33,7 +36,8 @@ app.get('/', (req, res) => {
             settings: '/api/settings',
             logs: '/api/logs',
             bluetooth: '/api/bluetooth/status',
-            chart: '/apdatai/chart/'
+            chart: '/api/chart/',
+            emergencyContact: '/api/emergency-contact'
         },
         documentation: 'See project documentation for full API details'
     });

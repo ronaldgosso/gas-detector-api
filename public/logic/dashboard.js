@@ -1349,5 +1349,122 @@ function deleteIncident(id) {
     );
 }
 
+// ===== EMERGENCY PHONE MANAGEMENT =====
+function loadEmergencyPhone() {
+    // Load from localStorage first
+    const savedPhone = localStorage.getItem('emergencyPhone') || '';
+    if (savedPhone) {
+        document.getElementById('emergencyPhone').value = savedPhone;
+        document.getElementById('modalEmergencyPhone').value = savedPhone;
+    }
+    
+    // Also try to load from server
+    fetch(`${API_BASE_URL}/api/emergency-contact`)
+        .then(response => response.json())
+        .then(data => {
+            if (data.success && data.data?.phone_number) {
+                const phone = data.data.phone_number.replace('+255', '').trim();
+                document.getElementById('emergencyPhone').value = phone;
+                document.getElementById('modalEmergencyPhone').value = phone;
+                localStorage.setItem('emergencyPhone', phone);
+                showPhoneStatus('✅ Emergency contact loaded', 'success');
+            }
+        })
+        .catch(err => console.log('No server contact found'));
+}
+
+function saveEmergencyPhone() {
+    const phoneInput = document.getElementById('emergencyPhone');
+    const statusEl = document.getElementById('phoneSaveStatus');
+    const rawPhone = phoneInput.value.trim();
+    
+    // Validate Tanzanian number format
+    if (!/^[0-9]{9}$/.test(rawPhone.replace(/\s/g, ''))) {
+        showPhoneStatus('❌ Invalid format. Use 9 digits (e.g., 712345678)', 'danger');
+        return;
+    }
+    
+    // Format consistently: +255XXXXXXXXX
+    const formattedPhone = `+255${rawPhone.replace(/\s/g, '')}`;
+    
+    // Save to localStorage immediately
+    localStorage.setItem('emergencyPhone', rawPhone);
+    
+    // Update modal field too
+    document.getElementById('modalEmergencyPhone').value = rawPhone;
+    
+    // Send to server
+    statusEl.innerHTML = '<span class="text-warning"><i class="fas fa-spinner fa-spin me-1"></i>Saving...</span>';
+    
+    fetch(`${API_BASE_URL}/api/emergency-contact`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+            phone_number: formattedPhone,
+            contact_name: 'Primary Alert Contact'
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            showPhoneStatus('✅ Emergency contact saved!', 'success');
+            Notiflix.Notify.success('Emergency contact saved successfully!');
+            // Refresh contacts list if exists
+            if (typeof loadContacts === 'function') loadContacts();
+        } else {
+            showPhoneStatus(`⚠️ Saved locally only: ${data.message || 'Server error'}`, 'warning');
+        }
+    })
+    .catch(error => {
+        console.error('Save failed:', error);
+        showPhoneStatus('⚠️ Saved locally. Server unavailable.', 'warning');
+    });
+}
+
+function showPhoneStatus(message, type) {
+    const el = document.getElementById('phoneSaveStatus') || document.getElementById('phoneStatus');
+    if (!el) return;
+    
+    el.innerHTML = `<span class="text-${type}"><i class="fas fa-${type === 'success' ? 'check-circle' : type === 'danger' ? 'exclamation-triangle' : 'info-circle'} me-1"></i>${message}</span>`;
+    
+    // Auto-clear after 5 seconds for success
+    if (type === 'success') {
+        setTimeout(() => { el.innerHTML = ''; }, 5000);
+    }
+}
+
+// Add phone validation on input
+document.addEventListener('DOMContentLoaded', () => {
+    const phoneInputs = document.querySelectorAll('#emergencyPhone, #modalEmergencyPhone');
+    phoneInputs.forEach(input => {
+        input.addEventListener('input', function(e) {
+            // Allow only digits and spaces
+            this.value = this.value.replace(/[^0-9\s]/g, '');
+            
+            // Auto-format as user types: 712 345 678
+            const digits = this.value.replace(/\s/g, '');
+            if (digits.length > 3 && digits.length <= 6) {
+                this.value = `${digits.slice(0,3)} ${digits.slice(3)}`;
+            } else if (digits.length > 6) {
+                this.value = `${digits.slice(0,3)} ${digits.slice(3,6)} ${digits.slice(6,9)}`;
+            }
+        });
+    });
+    
+    // Initialize phone field
+    loadEmergencyPhone();
+    
+    // Add save button listener for modal
+    const modalSaveBtn = document.querySelector('#settingsModal .btn-primary');
+    if (modalSaveBtn && !modalSaveBtn.dataset.phoneListener) {
+        modalSaveBtn.dataset.phoneListener = 'true';
+        const originalClick = modalSaveBtn.onclick;
+        modalSaveBtn.onclick = function(e) {
+            saveEmergencyPhone(); // Save phone first
+            if (originalClick) originalClick(e);
+        };
+    }
+});
+
 // Load theme on startup
 loadTheme();

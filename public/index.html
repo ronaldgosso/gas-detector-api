@@ -4,35 +4,21 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Gas Leak Monitor Dashboard</title>
+    <title>Gas Guard Monitor</title>
     <link rel="icon" type="image/png" href="favicon.png">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
-    <link href="https://cdnjs.cloudflare.com/ajax/libs/notiflix/3.2.6/notiflix.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/notiflix@3.2.7/dist/notiflix-3.2.7.min.css" />
     <link rel="stylesheet" href="./style/styles.css">
 </head>
 
 <body>
-    <!-- Loading Screen -->
-    <div id="loadingScreen" class="loading-screen">
-        <div class="loading-content">
-            <i class="fas fa-gas-pump fa-3x mb-3 text-primary animate-pulse"></i>
-            <h3>GasGuard Initializing</h3>
-            <p id="loadingStatus" class="text-muted">Loading components...</p>
-            <div class="progress mt-3">
-                <div id="loadingProgress" class="progress-bar progress-bar-striped progress-bar-animated"
-                    role="progressbar" style="width: 0%"></div>
-            </div>
-        </div>
-    </div>
-
     <!-- Navigation Bar -->
-
     <nav class="navbar navbar-expand-lg navbar-themed">
         <div class="container-fluid">
             <a class="navbar-brand" href="#">
                 <i class="fas fa-fire-alt me-2"></i>
-                GasGuard Monitor
+                Gas Guard Monitor
             </a>
             <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
                 <span class="navbar-toggler-icon"></span>
@@ -305,6 +291,27 @@
                                     <input type="text" class="form-control" id="apiEndpoint"
                                         value="http://localhost:3000">
                                 </div>
+
+                                <!-- EMERGENCY PHONE FIELD - MAIN SETTINGS -->
+                                <div class="mb-3">
+                                    <label class="form-label">
+                                        <i class="fas fa-phone-alt me-2"></i>Emergency Phone Number
+                                    </label>
+                                    <input type="tel" class="form-control" id="emergencyPhone"
+                                        placeholder="e.g., +255712345678" pattern="^\+?[0-9]{10,15}$"
+                                        title="Enter valid phone number with country code">
+                                    <small class="text-muted">
+                                        <i class="fas fa-bell me-1"></i>
+                                        SMS alerts sent via NextSMS when gas > 800 PPM
+                                    </small>
+                                    <button type="button" class="btn btn-sm btn-success mt-2" id="savePhoneBtn"
+                                        onclick="saveEmergencyPhone()">
+                                        <i class="fas fa-save me-1"></i>Save Phone Number
+                                    </button>
+                                    <span id="phoneSaveStatus" class="ms-2"></span>
+                                </div>
+                                <!-- END EMERGENCY PHONE FIELD -->
+
                                 <div class="mb-3">
                                     <label class="form-label">Theme Preference</label>
                                     <select class="form-select" id="themeSelect">
@@ -341,7 +348,7 @@
         </div>
     </div>
 
-    <!-- Settings Modal (Alternative) -->
+    <!-- Settings Modal -->
     <div class="modal fade" id="settingsModal" tabindex="-1">
         <div class="modal-dialog modal-lg">
             <div class="modal-content">
@@ -376,6 +383,23 @@
                         <label class="form-label">API Endpoint</label>
                         <input type="text" class="form-control" id="modalApiEndpoint" value="http://localhost:3000">
                     </div>
+
+                    <!-- EMERGENCY PHONE FIELD - MODAL -->
+                    <div class="mb-3">
+                        <label class="form-label">
+                            <i class="fas fa-phone-alt me-2"></i>Emergency Phone Number
+                        </label>
+                        <input type="tel" class="form-control" id="modalEmergencyPhone"
+                            placeholder="e.g., +255712345678" pattern="^\+?[0-9]{10,15}$"
+                            title="Enter valid phone number with country code">
+                        <small class="text-muted">
+                            <i class="fas fa-shield-alt me-1"></i>
+                            Critical alerts sent via SMS when gas > 800 PPM
+                        </small>
+                        <div id="modalPhoneStatus" class="mt-2" style="display:none;"></div>
+                    </div>
+                    <!-- END EMERGENCY PHONE FIELD -->
+
                 </div>
                 <div class="modal-footer">
                     <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
@@ -399,10 +423,27 @@
         </div>
     </div>
 
+    <!-- Loading Screen -->
+    <div id="loadingScreen">
+        <div class="loading-content">
+            <div class="loading-icon">
+                <i class="fas fa-fire-alt"></i>
+            </div>
+            <h2>Loading Gas Monitor Dashboard</h2>
+            <p>Fetching historical data...</p>
+            <div class="loading-bar">
+                <div id="loadingProgress"></div>
+            </div>
+            <div class="loading-stats">
+                <span id="loadingStatus">Initializing...</span>
+            </div>
+        </div>
+    </div>
+
     <!-- Scripts -->
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/notiflix/3.2.6/notiflix.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/notiflix@3.2.7/dist/notiflix-3.2.7.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <script src="./logic/dashboard.js"></script>
 </body>
