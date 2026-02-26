@@ -100,6 +100,26 @@ INSERT INTO bluetooth_connections (device_name, mac_address, port, status) VALUE
 ('HC-05 Gas Sensor', '00:00:00:00:00:00', 'COM5', 'disconnected')
 ON DUPLICATE KEY UPDATE device_name=device_name;
 
+
+-- ==========================================
+-- TABLE 6: Emergency Contacts
+-- ==========================================
+CREATE TABLE IF NOT EXISTS emergency_contacts (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    phone_number VARCHAR(20) NOT NULL UNIQUE,
+    contact_name VARCHAR(100) DEFAULT 'Emergency Contact',
+    is_active BOOLEAN DEFAULT TRUE,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    INDEX idx_phone (phone_number),
+    INDEX idx_active (is_active)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='Emergency contacts for SMS alerts';
+
+-- Insert default emergency contact (customize as needed)
+INSERT INTO emergency_contacts (phone_number, contact_name) VALUES
+('+255700000000', 'Primary Emergency Contact')
+ON DUPLICATE KEY UPDATE contact_name=contact_name;
+
 -- ==========================================
 -- INSERT SAMPLE DATA FOR TESTING
 -- ==========================================
