@@ -122,10 +122,10 @@
                         <button class="btn btn-outline-warning w-100 mb-2" id="clearLogsBtn" onclick="clearLogs()">
                             <i class="fas fa-trash me-2"></i>Clear Logs
                         </button>
-                        <button class="btn btn-outline-info w-100" data-bs-toggle="modal"
+                        <!-- <button class="btn btn-outline-info w-100" data-bs-toggle="modal"
                             data-bs-target="#settingsModal">
                             <i class="fas fa-cog me-2"></i>Settings
-                        </button>
+                        </button> -->
                     </div>
                 </div>
 
@@ -292,25 +292,100 @@
                                         value="http://localhost:3000">
                                 </div>
 
-                                <!-- EMERGENCY PHONE FIELD - MAIN SETTINGS -->
-                                <div class="mb-3">
-                                    <label class="form-label">
-                                        <i class="fas fa-phone-alt me-2"></i>Emergency Phone Number
-                                    </label>
-                                    <input type="tel" class="form-control" id="emergencyPhone"
-                                        placeholder="e.g., +255712345678" pattern="^\+?[0-9]{10,15}$"
-                                        title="Enter valid phone number with country code">
-                                    <small class="text-muted">
-                                        <i class="fas fa-bell me-1"></i>
-                                        SMS alerts sent via NextSMS when gas > 800 PPM
-                                    </small>
-                                    <button type="button" class="btn btn-sm btn-success mt-2" id="savePhoneBtn"
-                                        onclick="saveEmergencyPhone()">
-                                        <i class="fas fa-save me-1"></i>Save Phone Number
-                                    </button>
-                                    <span id="phoneSaveStatus" class="ms-2"></span>
+
+                                <!-- EMERGENCY CONTACTS MANAGEMENT - MAIN SETTINGS -->
+                                <div class="mb-4">
+                                    <h6 class="fw-bold mb-3"><i
+                                            class="fas fa-user-friends me-2 text-primary"></i>Emergency Contacts for SMS
+                                        Alerts</h6>
+
+                                    <!-- SMS Contact Selection -->
+                                    <div class="mb-3">
+                                        <label class="form-label fw-semibold">
+                                            <i class="fas fa-bell me-1 text-warning"></i>Select Contact for SMS Alerts
+                                        </label>
+                                        <select class="form-select form-select-sm" id="smsContactSelect">
+                                            <option value="0">📱 Send to ALL Active Contacts</option>
+                                            <!-- Options populated by JavaScript -->
+                                        </select>
+                                        <small class="text-muted mt-1 d-block">
+                                            <i class="fas fa-info-circle me-1"></i>
+                                            Choose specific contact or send to all active contacts for critical alerts
+                                            (>800 PPM)
+                                        </small>
+                                        <button type="button" class="btn btn-sm btn-primary mt-2" id="saveSmsContactBtn"
+                                            onclick="saveSelectedContact()">
+                                            <i class="fas fa-save me-1"></i>Save Selection
+                                        </button>
+                                        <span id="smsContactStatus" class="ms-2"></span>
+                                    </div>
+
+                                    <!-- Add New Contact Form -->
+                                    <div class="card border-dashed mt-3">
+                                        <div class="card-body">
+                                            <h6 class="fw-bold mb-3 text-primary">
+                                                <i class="fas fa-plus-circle me-2"></i>Add New Emergency Contact
+                                            </h6>
+                                            <div class="row g-3">
+                                                <div class="col-md-5">
+                                                    <label class="form-label">Phone Number <span
+                                                            class="text-danger">*</span></label>
+                                                    <div class="input-group">
+                                                        <span class="input-group-text">+255</span>
+                                                        <input type="tel" class="form-control" id="newContactPhone"
+                                                            placeholder="712 345 678"
+                                                            pattern="[0-9]{3}[ ]?[0-9]{3}[ ]?[0-9]{3}"
+                                                            title="Enter 9 digits (e.g., 712 345 678)">
+                                                    </div>
+                                                    <small class="text-muted">Tanzania format without country
+                                                        code</small>
+                                                </div>
+                                                <div class="col-md-5">
+                                                    <label class="form-label">Contact Name <span
+                                                            class="text-danger">*</span></label>
+                                                    <input type="text" class="form-control" id="newContactName"
+                                                        placeholder="e.g., Fire Department, John Doe">
+                                                </div>
+                                                <div class="col-md-2 d-flex align-items-end">
+                                                    <button type="button" class="btn btn-success w-100"
+                                                        id="addContactBtn" onclick="addEmergencyContact()">
+                                                        <i class="fas fa-plus me-1"></i>Add
+                                                    </button>
+                                                </div>
+                                            </div>
+                                            <div id="addContactStatus" class="mt-2"></div>
+                                        </div>
+                                    </div>
+
+                                    <!-- Active Contacts List -->
+                                    <!-- Active Contacts List -->
+                                    <div class="mt-3">
+                                        <h6 class="fw-bold mb-2">Active Contacts <span id="activeContactsCount"
+                                                class="badge themed-badge ms-2">0</span></h6>
+                                        <div class="table-responsive themed-table-container"
+                                            style="max-height: 200px; overflow-y: auto;">
+                                            <table class="table table-sm table-hover mb-0 themed-table">
+                                                <thead> <!-- ✅ REMOVED table-light CLASS -->
+                                                    <tr>
+                                                        <th>Name</th>
+                                                        <th>Phone</th>
+                                                        <th>Actions</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody id="activeContactsTable">
+                                                    <tr>
+                                                        <td colspan="3" class="text-center py-3 themed-table-cell">
+                                                            <i class="fas fa-spinner fa-spin me-2"></i>Loading
+                                                            contacts...
+                                                        </td>
+                                                    </tr>
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                    </div>
                                 </div>
-                                <!-- END EMERGENCY PHONE FIELD -->
+                                <!-- END EMERGENCY CONTACTS MANAGEMENT -->
+
 
                                 <div class="mb-3">
                                     <label class="form-label">Theme Preference</label>
@@ -349,7 +424,7 @@
     </div>
 
     <!-- Settings Modal -->
-    <div class="modal fade" id="settingsModal" tabindex="-1">
+    <!-- <div class="modal fade" id="settingsModal" tabindex="-1">
         <div class="modal-dialog modal-lg">
             <div class="modal-content">
                 <div class="modal-header">
@@ -384,7 +459,6 @@
                         <input type="text" class="form-control" id="modalApiEndpoint" value="http://localhost:3000">
                     </div>
 
-                    <!-- EMERGENCY PHONE FIELD - MODAL -->
                     <div class="mb-3">
                         <label class="form-label">
                             <i class="fas fa-phone-alt me-2"></i>Emergency Phone Number
@@ -398,7 +472,19 @@
                         </small>
                         <div id="modalPhoneStatus" class="mt-2" style="display:none;"></div>
                     </div>
-                    <!-- END EMERGENCY PHONE FIELD -->
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold">
+                            <i class="fas fa-bell me-1 text-warning"></i>SMS Alert Contact
+                        </label>
+                        <select class="form-select form-select-sm" id="modalSmsContactSelect">
+                            <option value="0">📱 Send to ALL Active Contacts</option>
+                       
+                        </select>
+                        <small class="text-muted mt-1 d-block">
+                            Critical alerts (>800 PPM) will be sent via SMS
+                        </small>
+                    </div>
+                 
 
                 </div>
                 <div class="modal-footer">
@@ -407,7 +493,7 @@
                 </div>
             </div>
         </div>
-    </div>
+    </div>  -->
 
     <!-- Theme Info Toast -->
     <div class="toast-container position-fixed bottom-0 end-0 p-3">

@@ -637,56 +637,224 @@ router.get('/chart/data', async (req, res) => {
 });
 
 // ===== EMERGENCY CONTACTS MANAGEMENT =====
+// Get all active emergency contacts
 router.get('/emergency-contacts', async (req, res) => {
-    try {
-        const [contacts] = await db.pool.query(
-            'SELECT id, phone_number, contact_name, is_active, created_at FROM emergency_contacts ORDER BY created_at DESC'
-        );
-        res.json({ success: true, data: contacts });
-    } catch (error) {
-        res.status(500).json({ success: false, message: 'Error fetching contacts', error: error.message });
-    }
+  try {
+    const result = await db.query(
+      'SELECT id, phone_number, contact_name, is_active FROM emergency_contacts WHERE is_active = TRUE ORDER BY created_at DESC'
+    );
+    res.json({ success: true, data: result });
+  } catch (error) {
+    res.status(500).json({ success: false, message: 'Error fetching contacts', error: error.message });
+  }
 });
 
+// Add new emergency contact
 router.post('/emergency-contacts', async (req, res) => {
-    try {
-        const { phone_number, contact_name = 'Emergency Contact' } = req.body;
-
-        if (!phone_number || !/^\+?[0-9]{10,15}$/.test(phone_number)) {
-            return res.status(400).json({ success: false, message: 'Invalid phone number format' });
-        }
-
-        // Normalize to +255 format
-        const normalizedPhone = phone_number.startsWith('+') ? phone_number : `+${phone_number}`;
-
-        const [result] = await db.query(
-            'INSERT INTO emergency_contacts (phone_number, contact_name) VALUES (?, ?)',
-            [normalizedPhone, contact_name]
-        );
-
-        res.status(201).json({
-            success: true,
-            message: 'Contact added successfully',
-            data: { id: result.insertId, phone_number: normalizedPhone, contact_name }
-        });
-    } catch (error) {
-        if (error.code === 'ER_DUP_ENTRY') {
-            return res.status(409).json({ success: false, message: 'Contact already exists' });
-        }
-        res.status(500).json({ success: false, message: 'Error adding contact', error: error.message });
+  try {
+    const { phone_number, contact_name = 'Emergency Contact' } = req.body;
+    
+    if (!phone_number || !/^\+?[0-9]{9,15}$/.test(phone_number.replace(/\s/g, ''))) {
+      return res.status(400).json({ success: false, message: 'Invalid phone number format. Use +255XXXXXXXXX' });
     }
+    
+    // Normalize to +255 format
+    let normalizedPhone = phone_number.trim();
+    if (!normalizedPhone.startsWith('+')) {
+      normalizedPhone = `+${normalizedPhone}`;
+    }
+    if (!normalizedPhone.startsWith('+255')) {
+      normalizedPhone = `+255${normalizedPhone.substring(1)}`;
+    }
+    
+    const result = await db.query(
+      'INSERT INTO emergency_contacts (phone_number, contact_name) VALUES (?, ?)',
+      [normalizedPhone, contact_name]
+    );
+    
+    res.status(201).json({ 
+      success: true, 
+      message: 'Contact added successfully',
+      data: { id: result.insertId, phone_number: normalizedPhone, contact_name }
+    });
+  } catch (error) {
+    if (error.code === 'ER_DUP_ENTRY') {
+      return res.status(409).json({ success: false, message: 'Contact already exists' });
+    }
+    res.status(500).json({ success: false, message: 'Error adding contact', error: error.message });
+  }
 });
 
+// Delete emergency contact (soft delete)
 router.delete('/emergency-contacts/:id', async (req, res) => {
-    try {
-        await db.query(
-            'UPDATE emergency_contacts SET is_active = FALSE WHERE id = ?',
-            [req.params.id]
-        );
-        res.json({ success: true, message: 'Contact deactivated' });
-    } catch (error) {
-        res.status(500).json({ success: false, message: 'Error deactivating contact', error: error.message });
+  try {
+    await db.query(
+      'UPDATE emergency_contacts SET is_active = FALSE WHERE id = ?',
+      [req.params.id]
+    );
+    res.json({ success: true, message: 'Contact deactivated' });
+  } catch (error) {
+    res.status(500).json({ success: false, message: 'Error deactivating contact', error: error.message });
+  }
+});
+
+// Get selected SMS contact
+router.get('/settings/sms-contact', async (req, res) => {
+  try {
+    const result = await db.query(
+      'SELECT setting_value FROM settings WHERE setting_key = ?',
+      ['sms_contact_id']
+    );
+    
+    let contactId = '0';
+    if (result.length > 0) {
+      contactId = result[0].setting_value;
     }
+    
+    // If specific contact selected, get details
+    if (contactId !== '0') {
+      const [contact] = await db.query(
+        'SELECT id, phone_number, contact_name FROM emergency_contacts WHERE id = ? AND is_active = TRUE',
+        [contactId]
+      );
+      
+      if (contact.length > 0) {
+        return res.json({ success: true, data: contact[0] });
+      }
+    }
+    
+    // Return all active contacts if no specific selection or contact not found
+    const [allContacts] = await db.query(
+      'SELECT id, phone_number, contact_name FROM emergency_contacts WHERE is_active = TRUE'
+    );
+    
+    res.json({ success: true, data: allContacts, isMultiple: true });
+  } catch (error) {
+    res.status(500).json({ success: false, message: 'Error fetching SMS contact', error: error.message });
+  }
+});
+
+// Set selected SMS contact
+router.put('/settings/sms-contact', async (req, res) => {
+  try {
+    const { contact_id } = req.body;
+    
+    if (contact_id === undefined || contact_id === null) {
+      return res.status(400).json({ success: false, message: 'Contact ID is required' });
+    }
+    
+    // If not "0" (all contacts), verify contact exists
+    if (contact_id !== '0' && contact_id !== 0) {
+      const [contactCheck] = await db.query(
+        'SELECT id FROM emergency_contacts WHERE id = ? AND is_active = TRUE',
+        [contact_id]
+      );
+      
+      if (contactCheck.length === 0) {
+        return res.status(404).json({ success: false, message: 'Contact not found or inactive' });
+      }
+    }
+    
+    // Update setting
+    await db.query(
+      'UPDATE settings SET setting_value = ? WHERE setting_key = ?',
+      [String(contact_id), 'sms_contact_id']
+    );
+    
+    res.json({ success: true, message: 'SMS contact updated successfully' });
+  } catch (error) {
+    res.status(500).json({ success: false, message: 'Error updating SMS contact', error: error.message });
+  }
+});
+
+// ===== UPDATE INCIDENT ENDPOINT FOR SMS =====
+router.post('/incidents', [
+  body('gas_level').isInt({ min: 0, max: 1023 }).withMessage('Gas level must be between 0 and 1023'),
+  body('status').isIn(['NORMAL', 'ALERT']).withMessage('Status must be NORMAL or ALERT'),
+  body('location').optional().isString()
+], async (req, res) => {
+  try {
+    // Validate request
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({
+        success: false,
+        errors: errors.array()
+      });
+    }
+
+    const { gas_level, status, location = 'Main Sensor', sensor_id = 'SENSOR_001' } = req.body;
+
+    // Insert new incident
+    const result = await db.query(
+      'INSERT INTO incidents (gas_level, status, location, sensor_id) VALUES (?, ?, ?, ?)',
+      [gas_level, status, location, sensor_id]
+    );
+
+    // Get the inserted record
+    const newIncident = await db.query(
+      'SELECT * FROM incidents WHERE id = ?',
+      [result.insertId]
+    );
+
+    // ============ SMS ALERT LOGIC ============
+    // Only trigger for critical alerts (gas_level > 800)
+    if (status === 'ALERT' && gas_level > 800) {
+      try {
+        // Get selected SMS contact configuration
+        const [smsSetting] = await db.query(
+          'SELECT setting_value FROM settings WHERE setting_key = ?',
+          ['sms_contact_id']
+        );
+        
+        let contacts = [];
+        const contactId = smsSetting.length > 0 ? smsSetting[0].setting_value : '0';
+        
+        if (contactId === '0') {
+          // Send to all active contacts
+          const [allContacts] = await db.query(
+            'SELECT phone_number, contact_name FROM emergency_contacts WHERE is_active = TRUE'
+          );
+          contacts = allContacts;
+        } else {
+          // Send to specific contact
+          const [specificContact] = await db.query(
+            'SELECT phone_number, contact_name FROM emergency_contacts WHERE id = ? AND is_active = TRUE',
+            [contactId]
+          );
+          if (specificContact.length > 0) {
+            contacts = specificContact;
+          }
+        }
+        
+        // Log SMS trigger (actual SMS integration would happen here)
+        if (contacts.length > 0) {
+          console.log(`📱 SMS TRIGGERED for ${gas_level} PPM at ${location}`);
+          console.log(`   Recipients: ${contacts.map(c => c.phone_number).join(', ')}`);
+          
+          // TODO: Integrate with NextSMS service here
+          // Example: await nextsmsService.sendAlert(gas_level, location, contacts);
+        } else {
+          console.log('⚠️ No active emergency contacts configured for SMS alerts');
+        }
+      } catch (smsError) {
+        console.error('SMS integration error:', smsError.message);
+        // Never fail the API request due to SMS issues
+      }
+    }
+    // ============ END SMS LOGIC ============
+
+    res.status(201).json({
+      success: true,
+      data: newIncident[0]
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: 'Error creating incident',
+      error: error.message
+    });
+  }
 });
 
 module.exports = router;

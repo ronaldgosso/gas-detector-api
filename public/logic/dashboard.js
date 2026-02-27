@@ -1,7 +1,3 @@
-// ==========================================
-// GAS LEAK DETECTION DASHBOARD - JAVASCRIPT
-// Fixed: Notiflix loading and animated loading screen
-// ==========================================
 
 // Configuration
 const API_BASE_URL = 'http://localhost:3000';
@@ -1357,7 +1353,7 @@ function loadEmergencyPhone() {
         document.getElementById('emergencyPhone').value = savedPhone;
         document.getElementById('modalEmergencyPhone').value = savedPhone;
     }
-    
+
     // Also try to load from server
     fetch(`${API_BASE_URL}/api/emergency-contact`)
         .then(response => response.json())
@@ -1377,56 +1373,56 @@ function saveEmergencyPhone() {
     const phoneInput = document.getElementById('emergencyPhone');
     const statusEl = document.getElementById('phoneSaveStatus');
     const rawPhone = phoneInput.value.trim();
-    
+
     // Validate Tanzanian number format
     if (!/^[0-9]{9}$/.test(rawPhone.replace(/\s/g, ''))) {
         showPhoneStatus('❌ Invalid format. Use 9 digits (e.g., 712345678)', 'danger');
         return;
     }
-    
+
     // Format consistently: +255XXXXXXXXX
     const formattedPhone = `+255${rawPhone.replace(/\s/g, '')}`;
-    
+
     // Save to localStorage immediately
     localStorage.setItem('emergencyPhone', rawPhone);
-    
+
     // Update modal field too
     document.getElementById('modalEmergencyPhone').value = rawPhone;
-    
+
     // Send to server
     statusEl.innerHTML = '<span class="text-warning"><i class="fas fa-spinner fa-spin me-1"></i>Saving...</span>';
-    
+
     fetch(`${API_BASE_URL}/api/emergency-contact`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ 
+        body: JSON.stringify({
             phone_number: formattedPhone,
             contact_name: 'Primary Alert Contact'
         })
     })
-    .then(response => response.json())
-    .then(data => {
-        if (data.success) {
-            showPhoneStatus('✅ Emergency contact saved!', 'success');
-            Notiflix.Notify.success('Emergency contact saved successfully!');
-            // Refresh contacts list if exists
-            if (typeof loadContacts === 'function') loadContacts();
-        } else {
-            showPhoneStatus(`⚠️ Saved locally only: ${data.message || 'Server error'}`, 'warning');
-        }
-    })
-    .catch(error => {
-        console.error('Save failed:', error);
-        showPhoneStatus('⚠️ Saved locally. Server unavailable.', 'warning');
-    });
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                showPhoneStatus('✅ Emergency contact saved!', 'success');
+                Notiflix.Notify.success('Emergency contact saved successfully!');
+                // Refresh contacts list if exists
+                if (typeof loadContacts === 'function') loadContacts();
+            } else {
+                showPhoneStatus(`⚠️ Saved locally only: ${data.message || 'Server error'}`, 'warning');
+            }
+        })
+        .catch(error => {
+            console.error('Save failed:', error);
+            showPhoneStatus('⚠️ Saved locally. Server unavailable.', 'warning');
+        });
 }
 
 function showPhoneStatus(message, type) {
     const el = document.getElementById('phoneSaveStatus') || document.getElementById('phoneStatus');
     if (!el) return;
-    
+
     el.innerHTML = `<span class="text-${type}"><i class="fas fa-${type === 'success' ? 'check-circle' : type === 'danger' ? 'exclamation-triangle' : 'info-circle'} me-1"></i>${message}</span>`;
-    
+
     // Auto-clear after 5 seconds for success
     if (type === 'success') {
         setTimeout(() => { el.innerHTML = ''; }, 5000);
@@ -1437,33 +1433,347 @@ function showPhoneStatus(message, type) {
 document.addEventListener('DOMContentLoaded', () => {
     const phoneInputs = document.querySelectorAll('#emergencyPhone, #modalEmergencyPhone');
     phoneInputs.forEach(input => {
-        input.addEventListener('input', function(e) {
+        input.addEventListener('input', function (e) {
             // Allow only digits and spaces
             this.value = this.value.replace(/[^0-9\s]/g, '');
-            
+
             // Auto-format as user types: 712 345 678
             const digits = this.value.replace(/\s/g, '');
             if (digits.length > 3 && digits.length <= 6) {
-                this.value = `${digits.slice(0,3)} ${digits.slice(3)}`;
+                this.value = `${digits.slice(0, 3)} ${digits.slice(3)}`;
             } else if (digits.length > 6) {
-                this.value = `${digits.slice(0,3)} ${digits.slice(3,6)} ${digits.slice(6,9)}`;
+                this.value = `${digits.slice(0, 3)} ${digits.slice(3, 6)} ${digits.slice(6, 9)}`;
             }
         });
     });
-    
+
     // Initialize phone field
     loadEmergencyPhone();
-    
+
     // Add save button listener for modal
     const modalSaveBtn = document.querySelector('#settingsModal .btn-primary');
     if (modalSaveBtn && !modalSaveBtn.dataset.phoneListener) {
         modalSaveBtn.dataset.phoneListener = 'true';
         const originalClick = modalSaveBtn.onclick;
-        modalSaveBtn.onclick = function(e) {
+        modalSaveBtn.onclick = function (e) {
             saveEmergencyPhone(); // Save phone first
             if (originalClick) originalClick(e);
         };
     }
+});
+
+// ===== EMERGENCY CONTACT MANAGEMENT =====
+// Load all active contacts and populate UI
+async function loadEmergencyContacts() {
+    try {
+        // Load contacts for dropdowns
+        const response = await fetch(`${API_BASE_URL}/api/emergency-contacts`);
+        const data = await response.json();
+
+        if (data.success) {
+            // Update dropdowns
+            updateContactDropdowns(data.data);
+
+            // Update contacts table
+            updateContactsTable(data.data);
+
+            // Load selected contact
+            loadSelectedContact();
+        }
+    } catch (error) {
+        console.error('Error loading contacts:', error);
+        showError('Failed to load emergency contacts');
+    }
+}
+
+// Update all contact dropdowns
+function updateContactDropdowns(contacts) {
+    const dropdowns = [
+        document.getElementById('smsContactSelect'),
+        document.getElementById('modalSmsContactSelect')
+    ];
+
+    dropdowns.forEach(dropdown => {
+        if (!dropdown) return;
+
+        // Preserve current selection
+        const currentVal = dropdown.value;
+
+        // Clear and repopulate
+        dropdown.innerHTML = '<option value="0">📱 Send to ALL Active Contacts</option>';
+
+        contacts.forEach(contact => {
+            const option = document.createElement('option');
+            option.value = contact.id;
+            option.textContent = `👤 ${contact.contact_name} (${contact.phone_number})`;
+            dropdown.appendChild(option);
+        });
+
+        // Restore selection if still valid
+        if (dropdown.querySelector(`option[value="${currentVal}"]`)) {
+            dropdown.value = currentVal;
+        }
+    });
+}
+
+// Update contacts table display
+function updateContactsTable(contacts) {
+    const tableBody = document.getElementById('activeContactsTable');
+    const countBadge = document.getElementById('activeContactsCount');
+
+    if (!tableBody || !countBadge) return;
+
+    countBadge.textContent = contacts.length;
+
+    if (contacts.length === 0) {
+        tableBody.innerHTML = `
+      <tr>
+        <td colspan="3" class="text-center py-3 text-muted">
+          <i class="fas fa-inbox fa-2x mb-2"></i>
+          <div>No emergency contacts configured</div>
+          <small class="mt-1 d-block">Add contacts above to receive SMS alerts</small>
+        </td>
+      </tr>
+    `;
+        return;
+    }
+
+    tableBody.innerHTML = contacts.map(contact => `
+    <tr>
+      <td><i class="fas fa-user me-1 text-primary"></i> ${contact.contact_name}</td>
+      <td><i class="fas fa-phone me-1 text-success"></i> ${contact.phone_number}</td>
+      <td>
+        <button class="btn btn-sm btn-outline-danger" 
+                onclick="deleteContact(${contact.id})" 
+                title="Deactivate contact">
+          <i class="fas fa-trash-alt"></i>
+        </button>
+      </td>
+    </tr>
+  `).join('');
+}
+
+// Load currently selected SMS contact
+async function loadSelectedContact() {
+    try {
+        const response = await fetch(`${API_BASE_URL}/api/settings/sms-contact`);
+        const data = await response.json();
+
+        if (data.success) {
+            const dropdowns = [
+                document.getElementById('smsContactSelect'),
+                document.getElementById('modalSmsContactSelect')
+            ];
+
+            dropdowns.forEach(dropdown => {
+                if (dropdown) {
+                    // If specific contact selected
+                    if (data.data && !data.isMultiple) {
+                        dropdown.value = data.data.id || '0';
+                    } else {
+                        dropdown.value = '0'; // All contacts
+                    }
+                }
+            });
+        }
+    } catch (error) {
+        console.error('Error loading selected contact:', error);
+    }
+}
+
+// Add new emergency contact
+async function addEmergencyContact() {
+    const phoneInput = document.getElementById('newContactPhone');
+    const nameInput = document.getElementById('newContactName');
+    const statusEl = document.getElementById('addContactStatus');
+
+    let rawPhone = phoneInput.value.trim();
+    const contactName = nameInput.value.trim() || 'Emergency Contact';
+
+    // Validate phone format (Tanzania 9 digits)
+    if (!/^[0-9]{9}$/.test(rawPhone.replace(/\s/g, ''))) {
+        showContactStatus('❌ Invalid format. Enter 9 digits (e.g., 712345678)', 'danger', statusEl);
+        phoneInput.focus();
+        return;
+    }
+
+    // Format consistently: 712 345 678
+    rawPhone = rawPhone.replace(/\s/g, '');
+    const formattedPhone = `${rawPhone.slice(0, 3)} ${rawPhone.slice(3, 6)} ${rawPhone.slice(6, 9)}`;
+
+    // Show loading
+    statusEl.innerHTML = '<span class="text-warning"><i class="fas fa-spinner fa-spin me-1"></i>Adding contact...</span>';
+    phoneInput.disabled = true;
+    nameInput.disabled = true;
+
+    try {
+        // Normalize to +255 format for database
+        const normalizedPhone = `+255${rawPhone}`;
+
+        const response = await fetch(`${API_BASE_URL}/api/emergency-contacts`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                phone_number: normalizedPhone,
+                contact_name: contactName
+            })
+        });
+
+        const result = await response.json();
+
+        if (result.success) {
+            showContactStatus('✅ Contact added successfully!', 'success', statusEl);
+
+            // Clear form
+            phoneInput.value = '';
+            nameInput.value = '';
+
+            // Reload contacts
+            await loadEmergencyContacts();
+
+            // Show success notification
+            if (typeof Notiflix !== 'undefined') {
+                Notiflix.Notify.success(`Contact "${contactName}" added!`);
+            }
+        } else {
+            showContactStatus(`❌ ${result.message || 'Failed to add contact'}`, 'danger', statusEl);
+        }
+    } catch (error) {
+        showContactStatus('❌ Network error. Please try again.', 'danger', statusEl);
+        console.error('Add contact error:', error);
+    } finally {
+        phoneInput.disabled = false;
+        nameInput.disabled = false;
+        setTimeout(() => { statusEl.innerHTML = ''; }, 5000);
+    }
+}
+
+// Save selected SMS contact
+async function saveSelectedContact() {
+    const contactId = document.getElementById('smsContactSelect').value;
+    const statusEl = document.getElementById('smsContactStatus');
+
+    statusEl.innerHTML = '<span class="text-warning"><i class="fas fa-spinner fa-spin me-1"></i>Saving...</span>';
+
+    try {
+        const response = await fetch(`${API_BASE_URL}/api/settings/sms-contact`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ contact_id: contactId })
+        });
+
+        const result = await response.json();
+
+        if (result.success) {
+            showContactStatus('✅ SMS contact selection saved!', 'success', statusEl);
+
+            // Update modal dropdown too
+            const modalDropdown = document.getElementById('modalSmsContactSelect');
+            if (modalDropdown) modalDropdown.value = contactId;
+
+            // Show notification
+            if (typeof Notiflix !== 'undefined') {
+                const contactText = contactId === '0' ? 'ALL active contacts' : 'Selected contact';
+                Notiflix.Notify.success(`SMS alerts will be sent to ${contactText}`);
+            }
+
+            // Auto-clear after 3 seconds
+            setTimeout(() => { statusEl.innerHTML = ''; }, 3000);
+        } else {
+            showContactStatus(`❌ ${result.message || 'Failed to save selection'}`, 'danger', statusEl);
+        }
+    } catch (error) {
+        showContactStatus('❌ Network error. Please try again.', 'danger', statusEl);
+        console.error('Save contact error:', error);
+    }
+}
+
+// Delete/deactivate contact
+async function deleteContact(contactId) {
+    if (typeof Notiflix !== 'undefined') {
+        Notiflix.Confirm.show(
+            'Deactivate Contact',
+            'Are you sure you want to deactivate this contact? They will no longer receive SMS alerts.',
+            'Yes, Deactivate',
+            'Cancel',
+            async () => {
+                try {
+                    const response = await fetch(`${API_BASE_URL}/api/emergency-contacts/${contactId}`, {
+                        method: 'DELETE'
+                    });
+
+                    const result = await response.json();
+
+                    if (result.success) {
+                        Notiflix.Notify.success('Contact deactivated successfully');
+                        await loadEmergencyContacts();
+                    } else {
+                        Notiflix.Notify.failure('Failed to deactivate contact');
+                    }
+                } catch (error) {
+                    Notiflix.Notify.failure('Error deactivating contact');
+                    console.error('Delete contact error:', error);
+                }
+            },
+            () => { },
+            {}
+        );
+    } else {
+        if (confirm('Deactivate this contact? They will no longer receive SMS alerts.')) {
+            // Fallback without Notiflix
+            fetch(`${API_BASE_URL}/api/emergency-contacts/${contactId}`, { method: 'DELETE' })
+                .then(() => location.reload());
+        }
+    }
+}
+
+// Helper: Show contact status messages
+function showContactStatus(message, type, element) {
+    element.innerHTML = `<span class="text-${type}"><i class="fas fa-${type === 'success' ? 'check-circle' : 'exclamation-triangle'} me-1"></i>${message}</span>`;
+}
+
+// Helper: Show error messages
+function showError(message) {
+    if (typeof Notiflix !== 'undefined') {
+        Notiflix.Notify.failure(message);
+    } else {
+        console.error(message);
+    }
+}
+
+// Initialize contact management when settings section is shown
+document.addEventListener('DOMContentLoaded', () => {
+    // Add phone input formatter
+    const phoneInputs = document.querySelectorAll('#newContactPhone, #emergencyPhone, #modalEmergencyPhone');
+    phoneInputs.forEach(input => {
+        input.addEventListener('input', function (e) {
+            // Allow only digits and spaces
+            this.value = this.value.replace(/[^0-9\s]/g, '');
+
+            // Auto-format as user types: 712 345 678
+            const digits = this.value.replace(/\s/g, '');
+            if (digits.length > 3 && digits.length <= 6) {
+                this.value = `${digits.slice(0, 3)} ${digits.slice(3)}`;
+            } else if (digits.length > 6) {
+                this.value = `${digits.slice(0, 3)} ${digits.slice(3, 6)} ${digits.slice(6, 9)}`;
+            }
+        });
+    });
+
+    // Load contacts when settings section is accessed
+    document.querySelectorAll('.nav-link[href="#settings"]').forEach(link => {
+        link.addEventListener('click', () => {
+            setTimeout(loadEmergencyContacts, 300);
+        });
+    });
+
+    // Load contacts on initial page load if on settings page
+    if (window.location.hash === '#settings') {
+        loadEmergencyContacts();
+    }
+
+    // Also load when modal opens
+    document.getElementById('settingsModal')?.addEventListener('shown.bs.modal', loadEmergencyContacts);
 });
 
 // Load theme on startup

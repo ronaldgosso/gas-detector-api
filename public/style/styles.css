@@ -839,3 +839,93 @@ canvas {
         font-size: 0.85rem;
     }
 }
+
+/* ===== THEMED TABLE FIXES ===== */
+.themed-table-container {
+    border-radius: 8px;
+    background: var(--card-body-bg);
+    box-shadow: var(--card-shadow);
+    padding: 1px;
+    /* Creates border effect */
+}
+
+.themed-table {
+    color: var(--text-primary);
+    background: transparent !important;
+    margin-bottom: 0;
+}
+
+.themed-table thead {
+    background: var(--table-header-bg) !important;
+    border-bottom: 2px solid var(--btn-primary-bg) !important;
+}
+
+.themed-table thead th {
+    color: var(--table-header-text) !important;
+    font-weight: 600 !important;
+    padding: 0.75rem 1rem !important;
+    border: none !important;
+    background: var(--table-header-bg) !important;
+}
+
+.themed-table tbody {
+    background: transparent !important;
+}
+
+.themed-table tbody tr {
+    border-bottom: 1px solid var(--border-color) !important;
+    background: var(--card-body-bg) !important;
+    transition: background 0.2s ease;
+}
+
+.themed-table tbody tr:hover {
+    background: var(--hover-bg) !important;
+}
+
+.themed-table tbody td {
+    padding: 0.75rem 1rem !important;
+    vertical-align: middle !important;
+    border: none !important;
+    color: var(--text-primary) !important;
+    font-size: 0.9rem;
+}
+
+.themed-table-cell {
+    color: var(--text-muted) !important;
+}
+
+/* Themed badge for contact count */
+.themed-badge {
+    background: var(--btn-primary-bg) !important;
+    color: var(--btn-primary-text) !important;
+    padding: 0.25em 0.6em !important;
+    font-size: 0.85em !important;
+    font-weight: 600 !important;
+    border-radius: 10px !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+}
+
+.themed-badge::after {
+    content: '';
+    display: inline-block;
+    width: 6px;
+    height: 6px;
+    background: currentColor;
+    border-radius: 50%;
+    margin-left: 4px;
+}
+
+/* Action button theming */
+.btn-sm.btn-outline-danger {
+    border-color: var(--status-danger) !important;
+    color: var(--status-danger) !important;
+}
+
+.btn-sm.btn-outline-danger:hover {
+    background: var(--status-danger) !important;
+    color: white !important;
+    transform: scale(1.05);
+    transition: all 0.2s ease;
+}
