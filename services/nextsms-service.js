@@ -6,6 +6,7 @@ class NextSMSService {
     this.senderId = process.env.NEXTSMS_SENDER_ID || 'GasMonitor';
     this.threshold = parseInt(process.env.SMS_THRESHOLD) || 800;
     this.cooldownSeconds = parseInt(process.env.SMS_COOLDOWN_SECONDS) || 30;
+    this.baseUrl = process.env.NEXTSMS_BASE_URL || 'https://api.nextsms.co.tz';
     
     // In-memory cooldown tracking: Map<phoneNumber, lastSentTimestamp>
     this.cooldownMap = new Map();
@@ -91,8 +92,8 @@ class NextSMSService {
       });
 
       const options = {
-        hostname: 'api.nextsms.co.tz',
-        path: '/api/v3/sms/send',
+        hostname: this.baseUrl,
+        path: '/api/v2/sms/send',
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${this.apiToken}`,
