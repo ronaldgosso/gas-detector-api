@@ -32,7 +32,7 @@ void loop() {
     Danger/Alarm Level: Above 700.
   */
 
-  // if (sensorValue >= 700) {
+  // if (sensorValue > 800) {
   //   digitalWrite(buzzerPin, HIGH);
   //   delay(100);
   //   digitalWrite(buzzerPin, LOW);
@@ -45,7 +45,7 @@ void loop() {
   //   delay(100);
   //   digitalWrite(buzzerPin, LOW);
   //   delay(100);
-  // } else if (sensorValue >= 450) {
+  // } else if (sensorValue >= 700 && sensorValue <= 800) {
   //   digitalWrite(buzzerPin, HIGH);
   //   delay(1000);
   //   digitalWrite(buzzerPin, LOW);

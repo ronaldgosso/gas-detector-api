@@ -142,6 +142,7 @@ router.get('/incidents/:id', async (req, res) => {
 });
 
 // ===== CREATE NEW INCIDENT (for Bluetooth receiver) =====
+// ===== CREATE NEW INCIDENT (with SMS alert) =====
 router.post('/incidents', [
     body('gas_level').isInt({ min: 0, max: 1023 }).withMessage('Gas level must be between 0 and 1023'),
     body('status').isIn(['NORMAL', 'ALERT']).withMessage('Status must be NORMAL or ALERT'),
@@ -171,6 +172,32 @@ router.post('/incidents', [
             [result.insertId]
         );
 
+        // ============ SMS ALERT LOGIC ============
+        // Only trigger for critical alerts (gas_level > threshold)
+        if (status === 'ALERT' && gas_level > 800) {
+            try {
+                // Load NextSMS service dynamically (prevents startup failure if module missing)
+                const nextsms = require('../services/nextsms-service');
+
+                // Fetch active emergency contacts
+                const [contacts] = await db.pool.query(
+                    'SELECT phone_number, contact_name FROM emergency_contacts WHERE is_active = TRUE'
+                );
+
+                if (contacts.length > 0) {
+                    // Send SMS in background (non-blocking)
+                    nextsms.sendAlert(gas_level, location, contacts)
+                        .catch(err => console.error('SMS background error:', err));
+                } else {
+                    console.log('ℹ️ No active emergency contacts configured');
+                }
+            } catch (smsError) {
+                console.error('SMS integration error:', smsError.message);
+                // Never fail the API request due to SMS issues
+            }
+        }
+        // ============ END SMS LOGIC ============
+
         res.status(201).json({
             success: true,
             data: newIncident[0]
@@ -183,7 +210,6 @@ router.post('/incidents', [
         });
     }
 });
-
 // ===== UPDATE INCIDENT =====
 router.put('/incidents/:id', async (req, res) => {
     try {
@@ -607,6 +633,59 @@ router.get('/chart/data', async (req, res) => {
             message: 'Error fetching chart data',
             error: error.message
         });
+    }
+});
+
+// ===== EMERGENCY CONTACTS MANAGEMENT =====
+router.get('/emergency-contacts', async (req, res) => {
+    try {
+        const [contacts] = await db.pool.query(
+            'SELECT id, phone_number, contact_name, is_active, created_at FROM emergency_contacts ORDER BY created_at DESC'
+        );
+        res.json({ success: true, data: contacts });
+    } catch (error) {
+        res.status(500).json({ success: false, message: 'Error fetching contacts', error: error.message });
+    }
+});
+
+router.post('/emergency-contacts', async (req, res) => {
+    try {
+        const { phone_number, contact_name = 'Emergency Contact' } = req.body;
+
+        if (!phone_number || !/^\+?[0-9]{10,15}$/.test(phone_number)) {
+            return res.status(400).json({ success: false, message: 'Invalid phone number format' });
+        }
+
+        // Normalize to +255 format
+        const normalizedPhone = phone_number.startsWith('+') ? phone_number : `+${phone_number}`;
+
+        const [result] = await db.query(
+            'INSERT INTO emergency_contacts (phone_number, contact_name) VALUES (?, ?)',
+            [normalizedPhone, contact_name]
+        );
+
+        res.status(201).json({
+            success: true,
+            message: 'Contact added successfully',
+            data: { id: result.insertId, phone_number: normalizedPhone, contact_name }
+        });
+    } catch (error) {
+        if (error.code === 'ER_DUP_ENTRY') {
+            return res.status(409).json({ success: false, message: 'Contact already exists' });
+        }
+        res.status(500).json({ success: false, message: 'Error adding contact', error: error.message });
+    }
+});
+
+router.delete('/emergency-contacts/:id', async (req, res) => {
+    try {
+        await db.query(
+            'UPDATE emergency_contacts SET is_active = FALSE WHERE id = ?',
+            [req.params.id]
+        );
+        res.json({ success: true, message: 'Contact deactivated' });
+    } catch (error) {
+        res.status(500).json({ success: false, message: 'Error deactivating contact', error: error.message });
     }
 });
 
