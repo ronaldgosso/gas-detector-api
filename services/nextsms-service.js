@@ -1,16 +1,16 @@
 const https = require('https');
+const settingsService = require('./settings-service');
 
 class NextSMSService {
   constructor() {
     this.apiToken = process.env.NEXTSMS_API_KEY || '';
     this.senderId = process.env.NEXTSMS_SENDER_ID || 'GasMonitor';
-    this.threshold = parseInt(process.env.SMS_THRESHOLD) || 800;
     this.cooldownSeconds = parseInt(process.env.SMS_COOLDOWN_SECONDS) || 30;
     this.baseUrl = process.env.NEXTSMS_BASE_URL || 'https://api.nextsms.co.tz';
-    
+
     // In-memory cooldown tracking: Map<phoneNumber, lastSentTimestamp>
     this.cooldownMap = new Map();
-    
+
     if (!this.apiToken) {
       console.warn('⚠️ NEXTSMS_API_KEY not configured. SMS alerts disabled.');
     }
@@ -19,10 +19,10 @@ class NextSMSService {
   // Check if SMS can be sent (respect 30-second cooldown)
   canSendSMS(phoneNumber) {
     if (!this.apiToken) return false;
-    
+
     const lastSent = this.cooldownMap.get(phoneNumber);
     if (!lastSent) return true;
-    
+
     const elapsedSeconds = (Date.now() - lastSent.getTime()) / 1000;
     return elapsedSeconds >= this.cooldownSeconds;
   }
@@ -40,36 +40,39 @@ class NextSMSService {
       console.log('⏭️ SMS skipped: NEXTSMS_API_KEY not configured');
       return false;
     }
-    
+
+    // Fetch threshold from DB
+    const threshold = await settingsService.getGasThreshold();
+
     // Skip if below threshold
-    if (gasLevel < this.threshold) {
-      console.log(`⏭️ SMS skipped: ${gasLevel} PPM < ${this.threshold} PPM threshold`);
+    if (gasLevel < threshold) {
+      console.log(`⏭️ SMS skipped: ${gasLevel} PPM < ${threshold} PPM threshold`);
       return false;
     }
-    
+
     // Filter eligible contacts (respect cooldown)
-    const eligible = contacts.filter(c => 
+    const eligible = contacts.filter(c =>
       c.phone_number && this.canSendSMS(c.phone_number)
     );
-    
+
     if (eligible.length === 0) {
       console.log(`⏭️ SMS skipped: All contacts on cooldown`);
       return false;
     }
-    
+
     // Format recipients (+255 format)
-    const recipients = eligible.map(c => 
+    const recipients = eligible.map(c =>
       c.phone_number.startsWith('+') ? c.phone_number : `+${c.phone_number}`
     );
-    
+
     // Format urgent message
     const message = `🚨 CRITICAL GAS LEAK!\n📍 ${location}\n📊 ${gasLevel} PPM\n⚠️ EVACUATE IMMEDIATELY!\n${new Date().toLocaleString('sw-TZ')}`;
-    
+
     try {
       console.log(`📤 Sending SMS to ${recipients.length} contact(s): ${recipients.join(', ')}`);
-      
+
       const success = await this._sendRaw(message, recipients);
-      
+
       if (success) {
         recipients.forEach(p => this.recordSMSSent(p));
         console.log(`✅ SMS alert sent successfully`);

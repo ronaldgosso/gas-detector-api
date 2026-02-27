@@ -424,7 +424,7 @@
     </div>
 
     <!-- Settings Modal -->
-    <!-- <div class="modal fade" id="settingsModal" tabindex="-1">
+    <div class="modal fade" id="settingsModal" tabindex="-1">
         <div class="modal-dialog modal-lg">
             <div class="modal-content">
                 <div class="modal-header">
@@ -463,14 +463,11 @@
                         <label class="form-label">
                             <i class="fas fa-phone-alt me-2"></i>Emergency Phone Number
                         </label>
-                        <input type="tel" class="form-control" id="modalEmergencyPhone"
-                            placeholder="e.g., +255712345678" pattern="^\+?[0-9]{10,15}$"
-                            title="Enter valid phone number with country code">
+                        <input type="tel" class="form-control" id="modalEmergencyPhone" placeholder="e.g., 712 345 678">
                         <small class="text-muted">
                             <i class="fas fa-shield-alt me-1"></i>
                             Critical alerts sent via SMS when gas > 800 PPM
                         </small>
-                        <div id="modalPhoneStatus" class="mt-2" style="display:none;"></div>
                     </div>
                     <div class="mb-3">
                         <label class="form-label fw-semibold">
@@ -478,14 +475,11 @@
                         </label>
                         <select class="form-select form-select-sm" id="modalSmsContactSelect">
                             <option value="0">📱 Send to ALL Active Contacts</option>
-                       
                         </select>
                         <small class="text-muted mt-1 d-block">
                             Critical alerts (>800 PPM) will be sent via SMS
                         </small>
                     </div>
-                 
-
                 </div>
                 <div class="modal-footer">
                     <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
@@ -493,7 +487,7 @@
                 </div>
             </div>
         </div>
-    </div>  -->
+    </div>
 
     <!-- Theme Info Toast -->
     <div class="toast-container position-fixed bottom-0 end-0 p-3">

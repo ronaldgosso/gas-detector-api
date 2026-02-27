@@ -1,6 +1,7 @@
-
 // Configuration
-const API_BASE_URL = 'http://localhost:3000';
+// Fallback to current window origin if not specified in localStorage
+let API_BASE_URL = localStorage.getItem('api_endpoint') || window.location.origin;
+console.log('Using API Base URL:', API_BASE_URL);
 let currentPage = 1;
 let itemsPerPage = 10;
 let autoRefreshInterval = 2000; // 2 seconds
@@ -20,7 +21,7 @@ let loadingProgress = 0;
 let loadingInterval;
 
 // Initialize dashboard on page load
-document.addEventListener('DOMContentLoaded', function () {
+document.addEventListener('DOMContentLoaded', async function () {
     // Initialize Notiflix immediately after DOM loads
     initializeNotiflix();
 
@@ -28,7 +29,7 @@ document.addEventListener('DOMContentLoaded', function () {
     startLoadingAnimation();
 
     // Load saved settings
-    loadSettings();
+    await loadSettings();
 
     // Initialize charts
     initializeCharts();
@@ -217,6 +218,10 @@ async function loadDataAndInitialize() {
 
         // Load daily stats
         await loadDailyStats();
+
+        // Load emergency contacts
+        updateLoadingStatus('Loading emergency contacts...');
+        await loadEmergencyContacts();
 
         // Complete loading
         completeLoading();
@@ -1207,58 +1212,146 @@ function playAlertSound() {
 }
 
 // ===== SETTINGS MANAGEMENT =====
-function saveSettings() {
-    const threshold = document.getElementById('thresholdInput').value;
-    const interval = document.getElementById('refreshInterval').value;
-    const port = document.getElementById('bluetoothPort').value;
-    const endpoint = document.getElementById('apiEndpoint').value;
-    const theme = document.getElementById('themeSelect').value;
-    autoRefreshEnabled = document.getElementById('autoRefreshToggle').checked;
-    notificationSoundEnabled = document.getElementById('notificationSoundToggle').checked;
+async function saveSettings() {
+    const thresholdInput = document.getElementById('thresholdInput') || document.getElementById('modalThresholdInput');
+    const intervalInput = document.getElementById('refreshInterval') || document.getElementById('modalRefreshInterval');
+    const portInput = document.getElementById('bluetoothPort') || document.getElementById('modalBluetoothPort');
+    const endpointInput = document.getElementById('apiEndpoint') || document.getElementById('modalApiEndpoint');
+    const themeSelect = document.getElementById('themeSelect');
 
-    // Save to localStorage
-    localStorage.setItem('gasThreshold', threshold);
-    localStorage.setItem('refreshInterval', interval);
-    localStorage.setItem('bluetoothPort', port);
-    localStorage.setItem('apiEndpoint', endpoint);
-    localStorage.setItem('gasMonitorTheme', theme);
-    localStorage.setItem('autoRefreshEnabled', autoRefreshEnabled);
-    localStorage.setItem('notificationSoundEnabled', notificationSoundEnabled);
+    if (!thresholdInput || !intervalInput || !endpointInput) return;
 
-    // Apply settings
-    autoRefreshInterval = parseInt(interval) * 1000;
-    setTheme(theme);
+    const threshold = thresholdInput.value;
+    const interval = intervalInput.value;
+    const port = portInput ? portInput.value : 'COM5';
+    const endpoint = endpointInput.value;
+    const theme = themeSelect ? themeSelect.value : 'light';
 
-    if (typeof Notiflix !== 'undefined') {
-        Notiflix.Notify.success('Settings saved successfully!');
+    autoRefreshEnabled = document.getElementById('autoRefreshToggle')?.checked ?? true;
+    notificationSoundEnabled = document.getElementById('notificationSoundToggle')?.checked ?? true;
+
+    // Detect if API endpoint changed
+    const oldEndpoint = localStorage.getItem('api_endpoint');
+    const endpointChanged = oldEndpoint !== endpoint;
+
+    // Prepare settings for backend
+    const settingsData = {
+        settings: {
+            gas_threshold: threshold,
+            refresh_interval: interval,
+            bluetooth_port: port,
+            api_endpoint_url: endpoint,
+            theme_preference: theme,
+            auto_refresh: autoRefreshEnabled.toString(),
+            sound_enabled: notificationSoundEnabled.toString()
+        }
+    };
+
+    try {
+        // Save to backend
+        const response = await fetch(`${API_BASE_URL}/api/settings`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(settingsData)
+        });
+
+        const result = await response.json();
+
+        if (result.success) {
+            // Also sync to localStorage for browser-side persistence/fallbacks
+            localStorage.setItem('gasThreshold', threshold);
+            localStorage.setItem('refreshInterval', interval);
+            localStorage.setItem('bluetoothPort', port);
+            localStorage.setItem('api_endpoint', endpoint);
+            localStorage.setItem('gasMonitorTheme', theme);
+            localStorage.setItem('autoRefreshEnabled', autoRefreshEnabled);
+            localStorage.setItem('notificationSoundEnabled', notificationSoundEnabled);
+
+            // Apply locally
+            autoRefreshInterval = parseInt(interval) * 1000;
+            setTheme(theme);
+
+            if (typeof Notiflix !== 'undefined') {
+                Notiflix.Notify.success('Settings saved to database!');
+            }
+
+            if (endpointChanged) {
+                if (typeof Notiflix !== 'undefined') {
+                    Notiflix.Confirm.show(
+                        'API Endpoint Changed',
+                        'The API endpoint has changed. The page will reload to apply changes.',
+                        'Reload Now',
+                        'Later',
+                        () => location.reload()
+                    );
+                } else if (confirm('API endpoint changed. Reload page?')) {
+                    location.reload();
+                }
+            }
+        } else {
+            throw new Error(result.message || 'Failed to save settings');
+        }
+    } catch (error) {
+        console.error('Settings save error:', error);
+        if (typeof Notiflix !== 'undefined') {
+            Notiflix.Notify.failure('Error saving settings: ' + error.message);
+        }
     }
 }
 
-function loadSettings() {
-    const threshold = localStorage.getItem('gasThreshold') || '400';
-    const interval = localStorage.getItem('refreshInterval') || '2';
-    const port = localStorage.getItem('bluetoothPort') || 'COM5';
-    const endpoint = localStorage.getItem('apiEndpoint') || 'http://localhost:3000';
-    const theme = localStorage.getItem('gasMonitorTheme') || 'light';
-    const autoRefresh = localStorage.getItem('autoRefreshEnabled') !== 'false';
-    const notificationSound = localStorage.getItem('notificationSoundEnabled') !== 'false';
+async function loadSettings() {
+    try {
+        const response = await fetch(`${API_BASE_URL}/api/settings`);
+        const result = await response.json();
 
-    if (document.getElementById('thresholdInput')) {
-        document.getElementById('thresholdInput').value = threshold;
-        document.getElementById('refreshInterval').value = interval;
-        document.getElementById('bluetoothPort').value = port;
-        document.getElementById('apiEndpoint').value = endpoint;
-        document.getElementById('themeSelect').value = theme;
-        document.getElementById('autoRefreshToggle').checked = autoRefresh;
-        document.getElementById('notificationSoundToggle').checked = notificationSound;
+        let settings = {};
+        if (result.success && result.data) {
+            settings = result.data;
+        }
+
+        // Fallbacks to localStorage if API fails or keys missing
+        const threshold = settings.gas_threshold || localStorage.getItem('gasThreshold') || '400';
+        const interval = settings.refresh_interval || localStorage.getItem('refreshInterval') || '2';
+        const port = settings.bluetooth_port || localStorage.getItem('bluetoothPort') || 'COM5';
+        const endpoint = settings.api_endpoint_url || localStorage.getItem('api_endpoint') || window.location.origin;
+        const theme = settings.theme_preference || localStorage.getItem('gasMonitorTheme') || 'light';
+        const autoRefresh = (settings.auto_refresh !== undefined ? settings.auto_refresh === 'true' : localStorage.getItem('autoRefreshEnabled') !== 'false');
+        const notificationSound = (settings.sound_enabled !== undefined ? settings.sound_enabled === 'true' : localStorage.getItem('notificationSoundEnabled') !== 'false');
+
+        // Update UI
+        const thresholdInput = document.getElementById('thresholdInput');
+        if (thresholdInput) {
+            thresholdInput.value = threshold;
+            document.getElementById('refreshInterval').value = interval;
+            if (document.getElementById('bluetoothPort')) document.getElementById('bluetoothPort').value = port;
+            document.getElementById('apiEndpoint').value = endpoint;
+            if (document.getElementById('themeSelect')) document.getElementById('themeSelect').value = theme;
+            if (document.getElementById('autoRefreshToggle')) document.getElementById('autoRefreshToggle').checked = autoRefresh;
+            if (document.getElementById('notificationSoundToggle')) document.getElementById('notificationSoundToggle').checked = notificationSound;
+        }
+
+        // Sync modal if exists
+        if (document.getElementById('modalThresholdInput')) {
+            document.getElementById('modalThresholdInput').value = threshold;
+            document.getElementById('modalRefreshInterval').value = interval;
+            document.getElementById('modalBluetoothPort').value = port;
+            document.getElementById('modalApiEndpoint').value = endpoint;
+        }
+
+        // Update global state
+        autoRefreshEnabled = autoRefresh;
+        notificationSoundEnabled = notificationSound;
+        autoRefreshInterval = parseInt(interval) * 1000;
+
+        // Apply theme
+        setTheme(theme);
+
+    } catch (error) {
+        console.error('Error loading settings from API:', error);
+        // Minimal fallback to localStorage on total network error
+        const interval = localStorage.getItem('refreshInterval') || '2';
+        autoRefreshInterval = parseInt(interval) * 1000;
     }
-
-    autoRefreshEnabled = autoRefresh;
-    notificationSoundEnabled = notificationSound;
-    autoRefreshInterval = parseInt(interval) * 1000;
-
-    // Load theme
-    loadTheme();
 }
 
 function saveModalSettings() {
@@ -1346,27 +1439,25 @@ function deleteIncident(id) {
 }
 
 // ===== EMERGENCY PHONE MANAGEMENT =====
-function loadEmergencyPhone() {
-    // Load from localStorage first
-    const savedPhone = localStorage.getItem('emergencyPhone') || '';
-    if (savedPhone) {
-        document.getElementById('emergencyPhone').value = savedPhone;
-        document.getElementById('modalEmergencyPhone').value = savedPhone;
-    }
+async function loadEmergencyPhone() {
+    try {
+        const response = await fetch(`${API_BASE_URL}/api/emergency-contacts`);
+        const result = await response.json();
 
-    // Also try to load from server
-    fetch(`${API_BASE_URL}/api/emergency-contact`)
-        .then(response => response.json())
-        .then(data => {
-            if (data.success && data.data?.phone_number) {
-                const phone = data.data.phone_number.replace('+255', '').trim();
-                document.getElementById('emergencyPhone').value = phone;
-                document.getElementById('modalEmergencyPhone').value = phone;
-                localStorage.setItem('emergencyPhone', phone);
-                showPhoneStatus('✅ Emergency contact loaded', 'success');
-            }
-        })
-        .catch(err => console.log('No server contact found'));
+        if (result.success && result.data) {
+            const phone = result.data.phone_number.replace('+255', '').trim();
+            const inputs = [
+                document.getElementById('emergencyPhone'),
+                document.getElementById('modalEmergencyPhone')
+            ];
+            inputs.forEach(input => {
+                if (input) input.value = phone;
+            });
+            localStorage.setItem('emergencyPhone', phone);
+        }
+    } catch (err) {
+        console.error('Error loading primary contact:', err);
+    }
 }
 
 function saveEmergencyPhone() {
@@ -1467,7 +1558,7 @@ document.addEventListener('DOMContentLoaded', () => {
 async function loadEmergencyContacts() {
     try {
         // Load contacts for dropdowns
-        const response = await fetch(`${API_BASE_URL}/api/emergency-contacts`);
+        const response = await fetch(`${API_BASE_URL}/api/emergency-contacts/list`);
         const data = await response.json();
 
         if (data.success) {
@@ -1556,7 +1647,7 @@ function updateContactsTable(contacts) {
 // Load currently selected SMS contact
 async function loadSelectedContact() {
     try {
-        const response = await fetch(`${API_BASE_URL}/api/settings/sms-contact`);
+        const response = await fetch(`${API_BASE_URL}/api/emergency-contacts/settings/sms-selection`);
         const data = await response.json();
 
         if (data.success) {
@@ -1656,7 +1747,7 @@ async function saveSelectedContact() {
     statusEl.innerHTML = '<span class="text-warning"><i class="fas fa-spinner fa-spin me-1"></i>Saving...</span>';
 
     try {
-        const response = await fetch(`${API_BASE_URL}/api/settings/sms-contact`, {
+        const response = await fetch(`${API_BASE_URL}/api/emergency-contacts/settings/sms-selection`, {
             method: 'PUT',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ contact_id: contactId })
@@ -1688,41 +1779,62 @@ async function saveSelectedContact() {
     }
 }
 
-// Delete/deactivate contact
 async function deleteContact(contactId) {
+    if (!contactId) {
+        console.error('No contact ID provided for deletion');
+        return;
+    }
+
+    const performDelete = async () => {
+        try {
+            const response = await fetch(`${API_BASE_URL}/api/emergency-contacts/${contactId}`, {
+                method: 'DELETE',
+                headers: { 'Accept': 'application/json' }
+            });
+
+            const result = await response.json();
+
+            if (result.success) {
+                if (typeof Notiflix !== 'undefined') {
+                    Notiflix.Notify.success('Contact deactivated successfully');
+                } else {
+                    alert('Contact deactivated successfully');
+                }
+                await loadEmergencyContacts();
+            } else {
+                const errorMsg = result.message || 'Failed to deactivate contact';
+                if (typeof Notiflix !== 'undefined') {
+                    Notiflix.Notify.failure(errorMsg);
+                } else {
+                    alert(errorMsg);
+                }
+            }
+        } catch (error) {
+            console.error('Delete contact error:', error);
+            if (typeof Notiflix !== 'undefined') {
+                Notiflix.Notify.failure('Error connecting to server. Please check your connection.');
+            } else {
+                alert('Error connecting to server.');
+            }
+        }
+    };
+
     if (typeof Notiflix !== 'undefined') {
         Notiflix.Confirm.show(
             'Deactivate Contact',
             'Are you sure you want to deactivate this contact? They will no longer receive SMS alerts.',
             'Yes, Deactivate',
             'Cancel',
-            async () => {
-                try {
-                    const response = await fetch(`${API_BASE_URL}/api/emergency-contacts/${contactId}`, {
-                        method: 'DELETE'
-                    });
-
-                    const result = await response.json();
-
-                    if (result.success) {
-                        Notiflix.Notify.success('Contact deactivated successfully');
-                        await loadEmergencyContacts();
-                    } else {
-                        Notiflix.Notify.failure('Failed to deactivate contact');
-                    }
-                } catch (error) {
-                    Notiflix.Notify.failure('Error deactivating contact');
-                    console.error('Delete contact error:', error);
-                }
-            },
+            performDelete,
             () => { },
-            {}
+            {
+                okButtonBackground: '#EF4444',
+                titleColor: '#EF4444'
+            }
         );
     } else {
         if (confirm('Deactivate this contact? They will no longer receive SMS alerts.')) {
-            // Fallback without Notiflix
-            fetch(`${API_BASE_URL}/api/emergency-contacts/${contactId}`, { method: 'DELETE' })
-                .then(() => location.reload());
+            performDelete();
         }
     }
 }

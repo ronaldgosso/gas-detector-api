@@ -5,10 +5,9 @@ const bodyParser = require('body-parser');
 const db = require('./config/database');
 const apiRoutes = require('./routes/api');
 const emergencyContactRoutes = require('./routes/emergency-contact');
-
+const settingsService = require('./services/settings-service');
 
 const app = express();
-const PORT = process.env.PORT || 3000;
 
 // ===== MIDDLEWARE =====
 app.use(cors());
@@ -20,7 +19,7 @@ app.use(express.static('public'));
 
 // ===== API ROUTES =====
 app.use('/api', apiRoutes);
-app.use('/api/emergency-contact', emergencyContactRoutes);
+app.use('/api/emergency-contacts', emergencyContactRoutes);
 
 // ===== ROOT ENDPOINT =====
 app.get('/', (req, res) => {
@@ -66,16 +65,26 @@ async function startServer() {
     try {
         // Test database connection
         const dbConnected = await db.testConnection();
-        
+
         if (!dbConnected) {
             console.error('Cannot start server without database connection');
             process.exit(1);
         }
-        
+
+        // Fetch port from DB
+        const apiEndpoint = await settingsService.getApiEndpoint();
+        let port = 3000;
+        try {
+            const url = new URL(apiEndpoint);
+            port = url.port || (url.protocol === 'https:' ? 443 : 80);
+        } catch (e) {
+            console.warn(`⚠️ Invalid API_ENDPOINT_URL in DB: "${apiEndpoint}". Falling back to port 3000.`);
+        }
+
         // Start server
-        app.listen(PORT, () => {
-            console.log('Server running at:', `http://localhost:${PORT}`);
-            console.log('API Base URL:', `http://localhost:${PORT}/api`);
+        app.listen(port, () => {
+            console.log('Server running at:', `http://localhost:${port}`);
+            console.log('API Base URL:', `http://localhost:${port}/api`);
             console.log('Available endpoints:');
             console.log('   • GET  /api/health              - Health check');
             console.log('   • GET  /api/sensor/latest       - Latest sensor reading');

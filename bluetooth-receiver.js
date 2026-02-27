@@ -2,10 +2,12 @@ require('dotenv').config();
 const SerialPort = require('serialport');
 const { ReadlineParser } = require('@serialport/parser-readline');
 const mysql = require('mysql2/promise');
+const settingsService = require('./services/settings-service');
 
 // ===== CONFIGURATION =====
-const BLUETOOTH_PORT = process.env.BLUETOOTH_PORT || 'COM5';
-const BAUD_RATE = parseInt(process.env.BLUETOOTH_BAUD_RATE) || 9600;
+// Replaced hardcoded defaults with dynamic fetching in init
+let BLUETOOTH_PORT = 'COM5';
+let BAUD_RATE = 9600;
 const MAX_RECONNECT_ATTEMPTS = 10;
 const INITIAL_RECONNECT_DELAY = 1000; // 1 second
 const MAX_RECONNECT_DELAY = 30000; // 30 seconds
@@ -31,9 +33,18 @@ let lastDataReceived = Date.now();
 let heartbeatTimer = null;
 let isShuttingDown = false;
 
+// Re-fetch port on каждый reconnect if needed
+async function refreshConfig() {
+  BLUETOOTH_PORT = await settingsService.getBluetoothPort();
+  const baud = await settingsService.getSetting('bluetooth_baud_rate', '9600');
+  BAUD_RATE = parseInt(baud);
+  console.log(`⚙️  Current Config: Port=${BLUETOOTH_PORT}, Baud=${BAUD_RATE}`);
+}
+
 // ===== DATABASE CONNECTION =====
 async function initDatabase() {
   try {
+    await refreshConfig();
     if (dbConnection) {
       // Test existing connection
       await dbConnection.query('SELECT 1');
@@ -43,7 +54,7 @@ async function initDatabase() {
 
     dbConnection = await mysql.createConnection(DB_CONFIG);
     console.log('✅ Database connected successfully');
-    
+
     // Setup connection error handler
     dbConnection.on('error', (err) => {
       if (err.code === 'PROTOCOL_CONNECTION_LOST') {
@@ -53,7 +64,7 @@ async function initDatabase() {
         console.error('❌ Database error:', err.message);
       }
     });
-    
+
     return true;
   } catch (error) {
     console.error('❌ Database connection failed:', error.message);
@@ -65,7 +76,7 @@ async function initDatabase() {
 // Retry database operation with exponential backoff
 async function withDbRetry(operation, maxRetries = 3) {
   let lastError;
-  
+
   for (let i = 0; i < maxRetries; i++) {
     try {
       if (!dbConnection) {
@@ -74,19 +85,19 @@ async function withDbRetry(operation, maxRetries = 3) {
       return await operation();
     } catch (error) {
       lastError = error;
-      
+
       // Only retry on connection errors
-      if (error.code !== 'PROTOCOL_CONNECTION_LOST' && 
-          error.code !== 'ECONNREFUSED' && 
-          error.code !== 'ER_CON_COUNT_ERROR') {
+      if (error.code !== 'PROTOCOL_CONNECTION_LOST' &&
+        error.code !== 'ECONNREFUSED' &&
+        error.code !== 'ER_CON_COUNT_ERROR') {
         throw error;
       }
-      
+
       console.warn(`⚠️ Database operation failed (attempt ${i + 1}/${maxRetries}). Retrying...`);
       await new Promise(resolve => setTimeout(resolve, Math.min(1000 * Math.pow(2, i), 5000)));
     }
   }
-  
+
   throw lastError;
 }
 
@@ -98,7 +109,7 @@ async function logIncident(gasLevel, status, location = 'Main Sensor') {
         'INSERT INTO incidents (gas_level, status, location) VALUES (?, ?, ?)',
         [gasLevel, status, location]
       );
-      
+
       // Update Bluetooth connection status
       await dbConnection.execute(
         `UPDATE bluetooth_connections 
@@ -106,14 +117,14 @@ async function logIncident(gasLevel, status, location = 'Main Sensor') {
          WHERE port = ?`,
         [BLUETOOTH_PORT]
       );
-      
+
       const timestamp = new Date().toLocaleTimeString();
       console.log(`[${timestamp}] ✅ Logged: Level=${gasLevel}, Status=${status}, ID=${result.insertId}`);
       return result;
     });
   } catch (error) {
     console.error('❌ Error logging incident:', error.message);
-    
+
     // Attempt to update connection status even on failure
     try {
       await withDbRetry(async () => {
@@ -127,7 +138,7 @@ async function logIncident(gasLevel, status, location = 'Main Sensor') {
     } catch (dbError) {
       console.error('⚠️ Failed to update connection status:', dbError.message);
     }
-    
+
     return null;
   }
 }
@@ -135,7 +146,7 @@ async function logIncident(gasLevel, status, location = 'Main Sensor') {
 // ===== BLUETOOTH CONNECTION MANAGEMENT =====
 async function connectBluetooth() {
   if (isShuttingDown) return;
-  
+
   try {
     // Close existing connection if open
     if (serialPort) {
@@ -154,7 +165,7 @@ async function connectBluetooth() {
     }
 
     console.log(`📡 Attempting to connect to Bluetooth device on ${BLUETOOTH_PORT}...`);
-    
+
     // Open serial port
     serialPort = new SerialPort({
       path: BLUETOOTH_PORT,
@@ -180,7 +191,7 @@ async function connectBluetooth() {
       const timeout = setTimeout(() => {
         reject(new Error('Port open timeout after 5 seconds'));
       }, 5000);
-      
+
       serialPort.open((err) => {
         clearTimeout(timeout);
         if (err) reject(err);
@@ -190,20 +201,20 @@ async function connectBluetooth() {
 
     // Setup parser
     parser = serialPort.pipe(new ReadlineParser({ delimiter: '\n' }));
-    
+
     // Data handler
     parser.on('data', async (data) => {
       lastDataReceived = Date.now();
-      
+
       const line = data.trim();
-      
+
       // Parse data format: GAS:<value>,<status>
       if (line.startsWith('GAS:')) {
         try {
           const parts = line.replace('GAS:', '').split(',');
           const gasLevel = parseInt(parts[0]);
           const status = parts[1] || 'UNKNOWN';
-          
+
           if (!isNaN(gasLevel) && gasLevel >= 0 && gasLevel <= 1023) {
             await logIncident(gasLevel, status);
           } else {
@@ -220,13 +231,13 @@ async function connectBluetooth() {
     // Reset reconnect state
     reconnectAttempts = 0;
     reconnectTimer = null;
-    
+
     // Start heartbeat monitoring
     startHeartbeatMonitor();
-    
+
     console.log('✅ Bluetooth receiver connected and listening!');
     console.log(`📊 Receiving data from ${BLUETOOTH_PORT} at ${BAUD_RATE} baud...\n`);
-    
+
     // Update connection status in database
     await withDbRetry(async () => {
       await dbConnection.execute(
@@ -242,7 +253,7 @@ async function connectBluetooth() {
 
   } catch (error) {
     console.error('❌ Failed to connect to Bluetooth device:', error.message);
-    
+
     // Update connection status in database
     try {
       await withDbRetry(async () => {
@@ -259,23 +270,23 @@ async function connectBluetooth() {
     } catch (dbError) {
       console.error('⚠️ Failed to update connection status:', dbError.message);
     }
-    
+
     scheduleReconnect(`Connection failed: ${error.message}`);
   }
 }
 
 function scheduleReconnect(reason) {
   if (isShuttingDown || reconnectTimer) return;
-  
+
   reconnectAttempts++;
   const delay = Math.min(
     INITIAL_RECONNECT_DELAY * Math.pow(2, reconnectAttempts - 1),
     MAX_RECONNECT_DELAY
   );
-  
+
   console.log(`\n⚠️ ${reason}`);
   console.log(`🔄 Reconnect attempt #${reconnectAttempts} in ${delay / 1000} seconds...\n`);
-  
+
   reconnectTimer = setTimeout(() => {
     reconnectTimer = null;
     if (!isShuttingDown && reconnectAttempts <= MAX_RECONNECT_ATTEMPTS) {
@@ -290,10 +301,10 @@ function scheduleReconnect(reason) {
 function startHeartbeatMonitor() {
   // Clear existing timer
   if (heartbeatTimer) clearInterval(heartbeatTimer);
-  
+
   heartbeatTimer = setInterval(() => {
     const timeSinceLastData = Date.now() - lastDataReceived;
-    
+
     if (timeSinceLastData > HEARTBEAT_TIMEOUT && serialPort && serialPort.isOpen) {
       console.warn(`⚠️ No data received for ${timeSinceLastData / 1000} seconds. Reconnecting...`);
       scheduleReconnect('Heartbeat timeout - no data received');
@@ -304,13 +315,13 @@ function startHeartbeatMonitor() {
 // ===== CLEANUP & SHUTDOWN =====
 async function cleanup() {
   isShuttingDown = true;
-  
+
   console.log('\n🛑 Shutdown initiated. Cleaning up resources...');
-  
+
   // Clear timers
   if (reconnectTimer) clearTimeout(reconnectTimer);
   if (heartbeatTimer) clearInterval(heartbeatTimer);
-  
+
   // Close serial port
   if (serialPort && serialPort.isOpen) {
     try {
@@ -324,7 +335,7 @@ async function cleanup() {
       console.warn('⚠️ Error closing serial port:', err.message);
     }
   }
-  
+
   // Close database connection
   if (dbConnection) {
     try {
@@ -334,7 +345,7 @@ async function cleanup() {
       console.warn('⚠️ Error closing database:', err.message);
     }
   }
-  
+
   console.log('✨ Cleanup complete. Exiting...\n');
   process.exit(0);
 }
@@ -364,7 +375,7 @@ async function startBluetoothReceiver() {
   console.log('║        [PRODUCTION READY WITH AUTO-RECOVERY]             ║');
   console.log('║                                                           ║');
   console.log('╚═══════════════════════════════════════════════════════════╝\n');
-  
+
   console.log('⚙️  Configuration:');
   console.log(`   • Bluetooth Port: ${BLUETOOTH_PORT}`);
   console.log(`   • Baud Rate: ${BAUD_RATE}`);
