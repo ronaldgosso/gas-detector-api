@@ -37,6 +37,16 @@ document.addEventListener('DOMContentLoaded', async function () {
     // Setup event listeners
     setupEventListeners();
 
+    // Handle initial navigation based on hash
+    const initialSection = window.location.hash.substring(1) || 'dashboard';
+    showSection(initialSection);
+
+    // Add hashchange listener for browser back/forward and direct links
+    window.addEventListener('hashchange', () => {
+        const section = window.location.hash.substring(1) || 'dashboard';
+        showSection(section);
+    });
+
     // Load all data immediately (don't wait for Arduino)
     loadDataAndInitialize();
 });
@@ -1854,39 +1864,5 @@ function showError(message) {
 }
 
 // Initialize contact management when settings section is shown
-document.addEventListener('DOMContentLoaded', () => {
-    // Add phone input formatter
-    const phoneInputs = document.querySelectorAll('#newContactPhone, #emergencyPhone, #modalEmergencyPhone');
-    phoneInputs.forEach(input => {
-        input.addEventListener('input', function (e) {
-            // Allow only digits and spaces
-            this.value = this.value.replace(/[^0-9\s]/g, '');
-
-            // Auto-format as user types: 712 345 678
-            const digits = this.value.replace(/\s/g, '');
-            if (digits.length > 3 && digits.length <= 6) {
-                this.value = `${digits.slice(0, 3)} ${digits.slice(3)}`;
-            } else if (digits.length > 6) {
-                this.value = `${digits.slice(0, 3)} ${digits.slice(3, 6)} ${digits.slice(6, 9)}`;
-            }
-        });
-    });
-
-    // Load contacts when settings section is accessed
-    document.querySelectorAll('.nav-link[href="#settings"]').forEach(link => {
-        link.addEventListener('click', () => {
-            setTimeout(loadEmergencyContacts, 300);
-        });
-    });
-
-    // Load contacts on initial page load if on settings page
-    if (window.location.hash === '#settings') {
-        loadEmergencyContacts();
-    }
-
-    // Also load when modal opens
-    document.getElementById('settingsModal')?.addEventListener('shown.bs.modal', loadEmergencyContacts);
-});
-
 // Load theme on startup
 loadTheme();

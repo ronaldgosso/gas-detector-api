@@ -73,10 +73,12 @@ async function startServer() {
 
         // Fetch port from DB
         const apiEndpoint = await settingsService.getApiEndpoint();
+        console.log(`🔍 Dynamic API Endpoint: "${apiEndpoint}"`);
         let port = 3000;
         try {
             const url = new URL(apiEndpoint);
             port = url.port || (url.protocol === 'https:' ? 443 : 80);
+            console.log(`🌐 Parsed Port: ${port}`);
         } catch (e) {
             console.warn(`⚠️ Invalid API_ENDPOINT_URL in DB: "${apiEndpoint}". Falling back to port 3000.`);
         }
