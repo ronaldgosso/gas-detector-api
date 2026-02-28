@@ -3,9 +3,16 @@ const express = require('express');
 const cors = require('cors');
 const bodyParser = require('body-parser');
 const db = require('./config/database');
+const settingsService = require('./services/settings-service');
+
 const apiRoutes = require('./routes/api');
 const emergencyContactRoutes = require('./routes/emergency-contact');
-const settingsService = require('./services/settings-service');
+const sensorRoutes = require('./routes/sensor');
+const chartDataRoutes = require('./routes/chart_data');
+const exportRoutes = require('./routes/export');
+const logsRoutes = require('./routes/logs');
+const settingsRoutes = require('./routes/settings');
+const statisticsRoutes = require('./routes/statistics');
 
 const app = express();
 
@@ -20,6 +27,12 @@ app.use(express.static('public'));
 // ===== API ROUTES =====
 app.use('/api', apiRoutes);
 app.use('/api/emergency-contacts', emergencyContactRoutes);
+app.use('/api/sensor', sensorRoutes);
+app.use('/api/chart/data', chartDataRoutes);
+app.use('/api/incidents/export', exportRoutes);
+app.use('/api/logs', logsRoutes);
+app.use('/api/settings', settingsRoutes);
+app.use('/api/statistics', statisticsRoutes);
 
 // ===== ROOT ENDPOINT =====
 app.get('/', (req, res) => {
