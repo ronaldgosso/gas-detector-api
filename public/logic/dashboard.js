@@ -1,6 +1,7 @@
 // Configuration
 // Fallback to current window origin if not specified in localStorage
-let API_BASE_URL = localStorage.getItem('api_endpoint') || window.location.origin;
+let API_BASE_URL = 'https://gas-detector-api.onrender.com';
+//localStorage.getItem('api_endpoint') || window.location.origin;
 console.log('Using API Base URL:', API_BASE_URL);
 let currentPage = 1;
 let itemsPerPage = 10;
