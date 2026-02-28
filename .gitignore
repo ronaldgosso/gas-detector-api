@@ -1,6 +1,18 @@
 # Node.js
 node_modules/
 
+# MySQL
+*.mysql
+*.sql
+
+#txt
+*.txt
+
+#arduino
+uno/
+*.ino
+
+
 # Logs
 logs
 *.log
