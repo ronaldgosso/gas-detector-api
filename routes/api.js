@@ -93,17 +93,19 @@ router.get('/incidents', async (req, res) => {
 
     res.json({
       success: true,
-      incidents: results,
-      total: total,
-      page: page,
-      limit: limit,
-      totalPages: Math.ceil(total / limit)
+      data: {
+        incidents: results,
+        total: total,
+        page: page,
+        limit: limit,
+        totalPages: Math.ceil(total / limit)
+      }
     });
   } catch (error) {
-    res.status(500).json({ 
-      success: false, 
-      message: 'Error fetching incidents', 
-      error: error.message 
+    res.status(500).json({
+      success: false,
+      message: 'Error fetching incidents',
+      error: error.message
     });
   }
 });
@@ -115,54 +117,61 @@ router.get('/incidents/:id', async (req, res) => {
     const result = await db.query('SELECT * FROM incidents WHERE id = ?', [id]);
     
     if (result.length === 0) {
-      return res.status(404).json({ 
-        success: false, 
-        message: 'Incident not found' 
+      return res.status(404).json({
+        success: false,
+        message: 'Incident not found'
       });
     }
 
-    res.json({ 
-      success: true, 
-      data: result[0] 
+    res.json({
+      success: true,
+      data: result[0]
     });
   } catch (error) {
-    res.status(500).json({ 
-      success: false, 
-      message: 'Error fetching incident', 
-      error: error.message 
+    res.status(500).json({
+      success: false,
+      message: 'Error fetching incident',
+      error: error.message
     });
   }
 });
 
-// ===== CREATE NEW INCIDENT (with SMS alert) =====
+// ===== CREATE NEW INCIDENT (Mobile & Bluetooth) =====
 router.post('/incidents', [
   body('gas_level').isInt({ min: 0, max: 1023 }).withMessage('Gas level must be between 0 and 1023'),
   body('status').isIn(['NORMAL', 'ALERT']).withMessage('Status must be NORMAL or ALERT'),
-  body('location').optional().isString()
+  body('location').optional().isString(),
+  body('sensor_id').optional().isString()
 ], async (req, res) => {
   try {
+    // Validate request
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
-      return res.status(400).json({ 
-        success: false, 
-        errors: errors.array() 
+      return res.status(400).json({
+        success: false,
+        errors: errors.array()
       });
     }
 
-    const { gas_level, status, location = 'Main Sensor', sensor_id = 'SENSOR_001' } = req.body;
+    const { gas_level, status, location = 'Mobile Sensor', sensor_id = 'MOBILE_001' } = req.body;
 
-    // FIX: Corrected typo "statu s" to "status"
+    // Insert new incident
     const result = await db.query(
       'INSERT INTO incidents (gas_level, status, location, sensor_id) VALUES (?, ?, ?, ?)',
       [gas_level, status, location, sensor_id]
     );
 
-    const newIncident = await db.query('SELECT * FROM incidents WHERE id = ?', [result.insertId]);
+    // Get the inserted record
+    const newIncident = await db.query(
+      'SELECT * FROM incidents WHERE id = ?',
+      [result.insertId]
+    );
 
-    // ============ SMS ALERT LOGIC ============
+    // ============ SMS ALERT LOGIC (Critical Threshold) ============
+    // ONLY trigger SMS if gas_level > 800 PPM (mobile app should handle averaging)
     if (status === 'ALERT' && gas_level > 800) {
       try {
-        // FIX: Use db.query instead of db.pool.query
+        // Get SMS contact preference
         const prefResult = await db.query(
           'SELECT setting_value FROM settings WHERE setting_key = ?',
           ['sms_contact_id']
@@ -172,11 +181,13 @@ router.post('/incidents', [
         let contacts = [];
         
         if (smsContactId === '0') {
+          // Send to all active contacts
           const allActive = await db.query(
             'SELECT phone_number, contact_name FROM emergency_contacts WHERE is_active = TRUE'
           );
           contacts = allActive;
         } else {
+          // Send to specific contact
           const selected = await db.query(
             'SELECT phone_number, contact_name FROM emergency_contacts WHERE id = ? AND is_active = TRUE',
             [smsContactId]
@@ -185,24 +196,33 @@ router.post('/incidents', [
         }
 
         if (contacts.length > 0) {
-          // SMS service will be integrated here later
+          // TODO: Integrate with NextSMS service here
           console.log(`📱 SMS TRIGGERED for ${gas_level} PPM to ${contacts.length} contact(s)`);
+          
+          // Example integration (uncomment when NextSMS service is ready):
+          /*
+          const nextsms = require('../services/nextsms-service');
+          await nextsms.sendAlert(gas_level, location, contacts);
+          */
         }
       } catch (smsError) {
         console.error('SMS integration error:', smsError.message);
+        // Never fail the API request due to SMS issues
       }
     }
     // ============ END SMS LOGIC ============
 
-    res.status(201).json({ 
-      success: true, 
-      data: newIncident[0] 
+    res.status(201).json({
+      success: true,
+      data: newIncident[0],
+      message: 'Incident logged successfully'
     });
   } catch (error) {
-    res.status(500).json({ 
-      success: false, 
-      message: 'Error creating incident', 
-      error: error.message 
+    console.error('Error creating incident:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error creating incident',
+      error: error.message
     });
   }
 });
@@ -229,6 +249,7 @@ router.put('/incidents/:id', async (req, res) => {
       params.push(location); 
     }
     
+    // Remove trailing comma and space
     sql = sql.slice(0, -2);
     sql += ' WHERE id = ?';
     params.push(id);
@@ -236,21 +257,21 @@ router.put('/incidents/:id', async (req, res) => {
     const result = await db.query(sql, params);
     
     if (result.affectedRows === 0) {
-      return res.status(404).json({ 
-        success: false, 
-        message: 'Incident not found' 
+      return res.status(404).json({
+        success: false,
+        message: 'Incident not found'
       });
     }
     
-    res.json({ 
-      success: true, 
-      message: 'Incident updated successfully' 
+    res.json({
+      success: true,
+      message: 'Incident updated successfully'
     });
   } catch (error) {
-    res.status(500).json({ 
-      success: false, 
-      message: 'Error updating incident', 
-      error: error.message 
+    res.status(500).json({
+      success: false,
+      message: 'Error updating incident',
+      error: error.message
     });
   }
 });
@@ -261,21 +282,21 @@ router.delete('/incidents/:id', async (req, res) => {
     const result = await db.query('DELETE FROM incidents WHERE id = ?', [req.params.id]);
     
     if (result.affectedRows === 0) {
-      return res.status(404).json({ 
-        success: false, 
-        message: 'Incident not found' 
+      return res.status(404).json({
+        success: false,
+        message: 'Incident not found'
       });
     }
     
-    res.json({ 
-      success: true, 
-      message: 'Incident deleted successfully' 
+    res.json({
+      success: true,
+      message: 'Incident deleted successfully'
     });
   } catch (error) {
-    res.status(500).json({ 
-      success: false, 
-      message: 'Error deleting incident', 
-      error: error.message 
+    res.status(500).json({
+      success: false,
+      message: 'Error deleting incident',
+      error: error.message
     });
   }
 });
@@ -286,15 +307,15 @@ router.delete('/incidents/clear', async (req, res) => {
     await db.query('DELETE FROM incidents');
     await db.query('ALTER TABLE incidents AUTO_INCREMENT = 1');
     
-    res.json({ 
-      success: true, 
-      message: 'All incidents cleared successfully' 
+    res.json({
+      success: true,
+      message: 'All incidents cleared successfully'
     });
   } catch (error) {
-    res.status(500).json({ 
-      success: false, 
-      message: 'Error clearing incidents', 
-      error: error.message 
+    res.status(500).json({
+      success: false,
+      message: 'Error clearing incidents',
+      error: error.message
     });
   }
 });
@@ -323,19 +344,21 @@ router.get('/statistics', async (req, res) => {
 
     res.json({
       success: true,
-      totalRecords: totalResult[0].total,
-      alertsToday: todayResult[0].count,
-      lastAlert: lastAlertResult.length > 0 ? lastAlertResult[0].timestamp : null,
-      avgGasLevel: Math.round(statsResult[0].avg_level || 0),
-      maxGasLevel: statsResult[0].max_level || 0,
-      minGasLevel: statsResult[0].min_level || 0,
-      distribution: distribution
+      data: {
+        totalRecords: totalResult[0].total,
+        alertsToday: todayResult[0].count,
+        lastAlert: lastAlertResult.length > 0 ? lastAlertResult[0].timestamp : null,
+        avgGasLevel: Math.round(statsResult[0].avg_level || 0),
+        maxGasLevel: statsResult[0].max_level || 0,
+        minGasLevel: statsResult[0].min_level || 0,
+        distribution: distribution
+      }
     });
   } catch (error) {
-    res.status(500).json({ 
-      success: false, 
-      message: 'Error fetching statistics', 
-      error: error.message 
+    res.status(500).json({
+      success: false,
+      message: 'Error fetching statistics',
+      error: error.message
     });
   }
 });
@@ -375,10 +398,10 @@ router.get('/incidents/export', async (req, res) => {
       count: results.length 
     });
   } catch (error) {
-    res.status(500).json({ 
-      success: false, 
-      message: 'Error exporting data', 
-      error: error.message 
+    res.status(500).json({
+      success: false,
+      message: 'Error exporting data',
+      error: error.message
     });
   }
 });
@@ -392,18 +415,15 @@ router.get('/settings', async (req, res) => {
       settings[row.setting_key] = row.setting_value; 
     });
     
-    settings['api_version'] = process.env.API_VERSION || 'v1';
-    settings['node_env'] = process.env.NODE_ENV || 'development';
-    
     res.json({ 
       success: true, 
       data: settings 
     });
   } catch (error) {
-    res.status(500).json({ 
-      success: false, 
-      message: 'Error fetching settings', 
-      error: error.message 
+    res.status(500).json({
+      success: false,
+      message: 'Error fetching settings',
+      error: error.message
     });
   }
 });
@@ -432,10 +452,10 @@ router.post('/settings', async (req, res) => {
       message: 'Settings updated successfully' 
     });
   } catch (error) {
-    res.status(500).json({ 
-      success: false, 
-      message: 'Error updating settings', 
-      error: error.message 
+    res.status(500).json({
+      success: false,
+      message: 'Error updating settings',
+      error: error.message
     });
   }
 });
@@ -464,10 +484,10 @@ router.get('/logs', async (req, res) => {
       data: results 
     });
   } catch (error) {
-    res.status(500).json({ 
-      success: false, 
-      message: 'Error fetching logs', 
-      error: error.message 
+    res.status(500).json({
+      success: false,
+      message: 'Error fetching logs',
+      error: error.message
     });
   }
 });
@@ -484,10 +504,35 @@ router.get('/bluetooth/status', async (req, res) => {
       data: result.length > 0 ? result[0] : null 
     });
   } catch (error) {
-    res.status(500).json({ 
-      success: false, 
-      message: 'Error fetching Bluetooth status', 
-      error: error.message 
+    res.status(500).json({
+      success: false,
+      message: 'Error fetching Bluetooth status',
+      error: error.message
+    });
+  }
+});
+
+// ===== UPDATE BLUETOOTH STATUS =====
+router.post('/bluetooth/status', async (req, res) => {
+  try {
+    const { device_name, mac_address, port, status } = req.body;
+    
+    await db.query(
+      `INSERT INTO bluetooth_connections (device_name, mac_address, port, status, last_connected) 
+       VALUES (?, ?, ?, ?, NOW()) 
+       ON DUPLICATE KEY UPDATE status = ?, last_connected = NOW()`,
+      [device_name, mac_address, port, status, status]
+    );
+    
+    res.json({
+      success: true,
+      message: 'Bluetooth status updated'
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: 'Error updating Bluetooth status',
+      error: error.message
     });
   }
 });
@@ -516,10 +561,10 @@ router.get('/statistics/daily', async (req, res) => {
       data: result 
     });
   } catch (error) {
-    res.status(500).json({ 
-      success: false, 
-      message: 'Error fetching daily statistics', 
-      error: error.message 
+    res.status(500).json({
+      success: false,
+      message: 'Error fetching daily statistics',
+      error: error.message
     });
   }
 });
@@ -533,6 +578,7 @@ router.get('/chart/data', async (req, res) => {
       [limit]
     );
     
+    // Reverse to show chronological order (oldest first)
     result.reverse();
     
     res.json({ 
@@ -540,10 +586,10 @@ router.get('/chart/data', async (req, res) => {
       data: result 
     });
   } catch (error) {
-    res.status(500).json({ 
-      success: false, 
-      message: 'Error fetching chart data', 
-      error: error.message 
+    res.status(500).json({
+      success: false,
+      message: 'Error fetching chart data',
+      error: error.message
     });
   }
 });
