@@ -3,7 +3,7 @@
 -- https://www.phpmyadmin.net/
 --
 -- Host: 127.0.0.1
--- Generation Time: Feb 27, 2026 at 04:44 AM
+-- Generation Time: Feb 27, 2026 at 07:47 AM
 -- Server version: 10.4.32-MariaDB
 -- PHP Version: 8.2.12
 
@@ -66,8 +66,9 @@ CREATE TABLE `emergency_contacts` (
 
 INSERT INTO `emergency_contacts` (`id`, `phone_number`, `contact_name`, `is_active`, `created_at`, `updated_at`) VALUES
 (1, '+255700000000', 'Primary Emergency Contact', 1, '2026-02-27 05:17:49', '2026-02-27 05:17:49'),
-(2, '+255712345678', 'Fire Department Dar es Salaam', 1, '2026-02-27 06:28:26', '2026-02-27 06:28:26'),
-(3, '+255789012345', 'Family Member', 1, '2026-02-27 06:28:26', '2026-02-27 06:28:26');
+(2, '+255712345678', 'Fire Department Dar es Salaam', 0, '2026-02-27 06:28:26', '2026-02-27 07:29:22'),
+(3, '+255789012345', 'Family Member', 0, '2026-02-27 06:28:26', '2026-02-27 07:37:18'),
+(5, '+255763930052', 'Hydra', 1, '2026-02-27 07:38:18', '2026-02-27 07:38:18');
 
 -- --------------------------------------------------------
 
@@ -147,15 +148,16 @@ CREATE TABLE `settings` (
 --
 
 INSERT INTO `settings` (`id`, `setting_key`, `setting_value`, `description`, `updated_at`) VALUES
-(1, 'gas_threshold', '400', 'Gas level threshold for ALERT status (0-1023)', '2026-02-27 05:17:48'),
-(2, 'refresh_interval', '2', 'Dashboard refresh interval in seconds', '2026-02-27 05:17:48'),
-(3, 'bluetooth_port', 'COM5', 'Bluetooth COM port for HC-05 module', '2026-02-27 05:17:48'),
+(1, 'gas_threshold', '700', 'Gas level threshold for ALERT status (0-1023)', '2026-02-27 07:59:03'),
+(2, 'refresh_interval', '5', 'Dashboard refresh interval in seconds', '2026-02-27 08:27:54'),
+(3, 'bluetooth_port', 'COM4', 'Bluetooth COM port for HC-05 module', '2026-02-27 08:27:32'),
 (4, 'bluetooth_baud_rate', '9600', 'Bluetooth baud rate', '2026-02-27 05:17:48'),
 (5, 'theme_preference', 'light', 'Default theme: light or dark', '2026-02-27 05:17:48'),
 (6, 'max_records', '10000', 'Maximum records to keep in database', '2026-02-27 05:17:48'),
 (7, 'notification_email', '', 'Email for alert notifications', '2026-02-27 05:17:48'),
 (8, 'created_at', '2026-02-27 05:17:48', 'System initialization timestamp', '2026-02-27 05:17:48'),
-(9, 'sms_contact_id', '0', 'ID of selected contact for SMS alerts (0 = all active contacts)', '2026-02-27 06:29:32');
+(9, 'sms_contact_id', '5', 'ID of selected contact for SMS alerts (0 = all active contacts)', '2026-02-27 07:43:44'),
+(10, 'api_endpoint_url', 'http://127.0.0.1:3000', 'Base URL for the API endpoints', '2026-02-27 09:27:40');
 
 -- --------------------------------------------------------
 
@@ -347,7 +349,7 @@ ALTER TABLE `bluetooth_connections`
 -- AUTO_INCREMENT for table `emergency_contacts`
 --
 ALTER TABLE `emergency_contacts`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=5;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=6;
 
 --
 -- AUTO_INCREMENT for table `incidents`
@@ -359,7 +361,7 @@ ALTER TABLE `incidents`
 -- AUTO_INCREMENT for table `settings`
 --
 ALTER TABLE `settings`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=10;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=11;
 
 --
 -- AUTO_INCREMENT for table `system_logs`

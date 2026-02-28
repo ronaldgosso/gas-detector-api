@@ -85,8 +85,8 @@ async function startServer() {
 
         // Start server
         app.listen(port, () => {
-            console.log('Server running at:', `http://localhost:${port}`);
-            console.log('API Base URL:', `http://localhost:${port}/api`);
+            console.log('Server running at:', `${apiEndpoint}`);
+            console.log('API Base URL:', `${apiEndpoint}/api`);
             console.log('Available endpoints:');
             console.log('   • GET  /api/health              - Health check');
             console.log('   • GET  /api/sensor/latest       - Latest sensor reading');
