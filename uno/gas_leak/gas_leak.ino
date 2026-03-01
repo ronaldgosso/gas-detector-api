@@ -20,19 +20,24 @@ void setup() {
 }
 
 void loop() {
+  //gas value from A0
   int sensorValue = analogRead(A0);
-  Serial.print("Gas:");
+  Serial.print("GAS:");
+  //Read in serial monitor
   Serial.println(sensorValue);
+  // CRITICAL: Send proper format for mobile app
+  String data = "GAS:" + String(sensorValue) + "," + status;
 
   /*
     Normal Air (Baseline): 50 – 150.
 
-    Caution/Gas Present: 200 – 400
+    Caution/Gas Present: 200 – 700 [700 alert]
 
-    Danger/Alarm Level: Above 700.
+    Danger/Alarm Level: Above 800.
   */
 
-  // if (sensorValue > 800) {
+  // if (sensorValue >= 800) {
+  BTserial.println(data);
   //   digitalWrite(buzzerPin, HIGH);
   //   delay(100);
   //   digitalWrite(buzzerPin, LOW);
@@ -46,23 +51,17 @@ void loop() {
   //   digitalWrite(buzzerPin, LOW);
   //   delay(100);
   // } else if (sensorValue >= 700 && sensorValue <= 800) {
+    BTserial.println(data);
   //   digitalWrite(buzzerPin, HIGH);
   //   delay(1000);
   //   digitalWrite(buzzerPin, LOW);
   //   delay(1000);
-  // } else {
+  // } else if(sensorValue >= 400 && sensorValue <= 700) {
+  // //send only for reading and ploting to graph not for alert
+  //   BTserial.println(data);
+  // }
+  // else {
   //   digitalWrite(buzzerPin, LOW);
   // }
   delay(3000);
-  // if (BTserial.available()) {
-  BTserial.println(sensorValue);
-  delay(3000);
-  // }
-
-
-  // lcd.clear();
-  // lcd.setCursor(2, 1);
-  // lcd.print(sensorValue);
-
-  // delay(1000);
 }

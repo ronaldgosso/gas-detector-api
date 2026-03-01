@@ -3,21 +3,18 @@ const express = require('express');
 const cors = require('cors');
 const bodyParser = require('body-parser');
 const db = require('./config/database');
-const settingsService = require('./services/settings-service');
-
 const apiRoutes = require('./routes/api');
 const emergencyContactRoutes = require('./routes/emergency-contact');
-const sensorRoutes = require('./routes/sensor');
-const chartDataRoutes = require('./routes/chart_data');
-const exportRoutes = require('./routes/export');
-const logsRoutes = require('./routes/logs');
-const settingsRoutes = require('./routes/settings');
-const statisticsRoutes = require('./routes/statistics');
+const settingsService = require('./services/settings-service');
 
 const app = express();
 
 // ===== MIDDLEWARE =====
-app.use(cors());
+app.use(cors(
+    {
+        origin: 'https://ronaldgosso.github.io/gas-detector-api/',
+    }
+));
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true }));
 
@@ -98,8 +95,8 @@ async function startServer() {
 
         // Start server
         app.listen(port, () => {
-            console.log('Server running at:', `http://localhost:${port}`);
-            console.log('API Base URL:', `http://localhost:${port}/api`);
+            console.log('Server running at:', `${apiEndpoint}`);
+            console.log('API Base URL:', `${apiEndpoint}/api`);
             console.log('Available endpoints:');
             console.log('   • GET  /api/health              - Health check');
             console.log('   • GET  /api/sensor/latest       - Latest sensor reading');
