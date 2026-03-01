@@ -146,6 +146,7 @@ router.post('/incidents', [
   try {
     // Validate request
     const errors = validationResult(req);
+    var sms_tracker = 'SMS NOT SENT';
     if (!errors.isEmpty()) {
       return res.status(400).json({
         success: false,
@@ -196,14 +197,11 @@ router.post('/incidents', [
         }
 
         if (contacts.length > 0) {
-          // TODO: Integrate with NextSMS service here
           console.log(`📱 SMS TRIGGERED for ${gas_level} PPM to ${contacts.length} contact(s)`);
 
-          // Example integration (uncomment when NextSMS service is ready):
+          const nextsms = require('./nextsms-service');
 
-          const nextsms = require('nextsms-service');
-
-          await nextsms.sendAlert(gas_level, location, contacts);
+          sms_tracker = await nextsms.sendAlert(gas_level, location, contacts);
 
         } else {
           console.log(`📱 No contact(s) Found`);
@@ -212,7 +210,7 @@ router.post('/incidents', [
         console.error('SMS integration error:', smsError.message);
         // Never fail the API request due to SMS issues
       }
-    }else{
+    } else {
       console.log("Gas Alert not enough");
     }
     // ============ END SMS LOGIC ============
@@ -220,7 +218,10 @@ router.post('/incidents', [
     res.status(201).json({
       success: true,
       data: newIncident[0],
-      message: 'Incident logged successfully'
+      message: {
+        message_sent: sms_tracker,
+        msg: 'Incident logged successfully'
+      }
     });
   } catch (error) {
     console.error('Error creating incident:', error);
