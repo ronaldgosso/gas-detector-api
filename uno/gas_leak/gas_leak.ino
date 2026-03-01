@@ -7,6 +7,7 @@ SoftwareSerial BTserial(3, 2);
 byte data = 0x01;  // RX | TX
 const int buzzerPin = 12;
 const int baudRate = 9600;
+String status;
 
 
 void setup() {
@@ -25,43 +26,50 @@ void loop() {
   Serial.print("GAS:");
   //Read in serial monitor
   Serial.println(sensorValue);
-  // CRITICAL: Send proper format for mobile app
-  String data = "GAS:" + String(sensorValue) + "," + status;
+
 
   /*
-    Normal Air (Baseline): 50 – 150.
+    Normal Air (Baseline): 50 – 150. [NORMAL]
 
-    Caution/Gas Present: 200 – 700 [700 alert]
+    Caution/Gas Present: 200 – 700 [700 ALERT]
 
-    Danger/Alarm Level: Above 800.
+    Danger/Alarm Level: Above 800.[CRITICAL]
   */
 
-  // if (sensorValue >= 800) {
-  BTserial.println(data);
-  //   digitalWrite(buzzerPin, HIGH);
-  //   delay(100);
-  //   digitalWrite(buzzerPin, LOW);
-  //   delay(100);
-  //   digitalWrite(buzzerPin, HIGH);
-  //   delay(100);
-  //   digitalWrite(buzzerPin, LOW);
-  //   delay(100);
-  //   digitalWrite(buzzerPin, HIGH);
-  //   delay(100);
-  //   digitalWrite(buzzerPin, LOW);
-  //   delay(100);
-  // } else if (sensorValue >= 700 && sensorValue <= 800) {
+  if (sensorValue >= 800) {
+    status = "CRITICAL";
+    // CRITICAL: Send proper format for mobile app
+    String data = "GAS:" + String(sensorValue) + "," + status;
     BTserial.println(data);
-  //   digitalWrite(buzzerPin, HIGH);
-  //   delay(1000);
-  //   digitalWrite(buzzerPin, LOW);
-  //   delay(1000);
-  // } else if(sensorValue >= 400 && sensorValue <= 700) {
-  // //send only for reading and ploting to graph not for alert
-  //   BTserial.println(data);
-  // }
-  // else {
-  //   digitalWrite(buzzerPin, LOW);
-  // }
+
+    digitalWrite(buzzerPin, HIGH);
+    delay(100);
+    digitalWrite(buzzerPin, LOW);
+    delay(100);
+    digitalWrite(buzzerPin, HIGH);
+    delay(100);
+    digitalWrite(buzzerPin, LOW);
+    delay(100);
+    digitalWrite(buzzerPin, HIGH);
+    delay(100);
+    digitalWrite(buzzerPin, LOW);
+    delay(100);
+  } else if (sensorValue >= 700 && sensorValue <= 800) {
+    status = "ALERT";
+    String data = "GAS:" + String(sensorValue) + "," + status;
+    BTserial.println(data);
+
+    digitalWrite(buzzerPin, HIGH);
+    delay(1000);
+    digitalWrite(buzzerPin, LOW);
+    delay(1000);
+  } else if (sensorValue >= 400 && sensorValue <= 700) {
+    //send only for reading and ploting to graph not for alert
+    status = "NORMAL";
+    String data = "GAS:" + String(sensorValue) + "," + status;
+    BTserial.println(data);
+  } else {
+    digitalWrite(buzzerPin, LOW);
+  }
   delay(3000);
 }

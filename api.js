@@ -200,10 +200,11 @@ router.post('/incidents', [
           console.log(`📱 SMS TRIGGERED for ${gas_level} PPM to ${contacts.length} contact(s)`);
 
           // Example integration (uncomment when NextSMS service is ready):
-          /*
-          const nextsms = require('../services/nextsms-service');
+          
+          const nextsms = require('nextsms-service');
+
           await nextsms.sendAlert(gas_level, location, contacts);
-          */
+          
         }
       } catch (smsError) {
         console.error('SMS integration error:', smsError.message);
