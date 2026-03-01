@@ -13,7 +13,7 @@ const app = express();
 app.use(cors(
     {
         origin: 'https://ronaldgosso.github.io',
-        methods: ["GET", "POST"],
+        methods: ["GET", "POST", "PUT", "DELETE"],
     }
 ));
 app.use(bodyParser.json());
@@ -38,7 +38,7 @@ app.get('/', (req, res) => {
             logs: '/api/logs',
             bluetooth: '/api/bluetooth/status',
             chart: '/api/chart/',
-            emergencyContact: '/api/emergency-contact'
+            emergencyContacts: '/api/emergency-contacts'
         },
         documentation: 'See project documentation for full API details'
     });
