@@ -12,7 +12,7 @@ const app = express();
 // ===== MIDDLEWARE =====
 app.use(cors(
     {
-        origin: 'https://ronaldgosso.github.io/gas-detector/',
+        origin: 'https://ronaldgosso.github.io',
     }
 ));
 app.use(bodyParser.json());
