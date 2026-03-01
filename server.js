@@ -21,7 +21,6 @@ app.use(bodyParser.urlencoded({ extended: true }));
 
 // ===== API ROUTES =====
 app.use('/api', apiRoutes);
-app.use('/api/emergency-contacts', emergencyContactRoutes);
 
 // ===== ROOT ENDPOINT =====
 app.get('/', (req, res) => {
@@ -99,7 +98,6 @@ async function startServer() {
             console.log('   • GET  /api/incidents/export    - Export data (JSON/CSV/XML)');
             console.log('   • GET  /api/settings            - Get system settings');
             console.log('   • GET  /api/logs                - System logs');
-            console.log('   • GET  /api/bluetooth/status    - Bluetooth connection status');
             console.log('   • GET  /api/statistics/daily    - Daily statistics');
         });
     } catch (error) {
