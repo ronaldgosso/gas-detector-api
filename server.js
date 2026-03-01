@@ -18,9 +18,6 @@ app.use(cors(
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true }));
 
-// ===== STATIC FILES =====
-app.use(express.static('public'));
-
 // ===== API ROUTES =====
 app.use('/api', apiRoutes);
 app.use('/api/emergency-contacts', emergencyContactRoutes);
