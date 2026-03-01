@@ -205,11 +205,15 @@ router.post('/incidents', [
 
           await nextsms.sendAlert(gas_level, location, contacts);
 
+        } else {
+          console.log(`📱 No contact(s) Found`);
         }
       } catch (smsError) {
         console.error('SMS integration error:', smsError.message);
         // Never fail the API request due to SMS issues
       }
+    }else{
+      console.log("Gas Alert not enough");
     }
     // ============ END SMS LOGIC ============
 

@@ -65,7 +65,7 @@ CREATE TABLE `emergency_contacts` (
 --
 
 INSERT INTO `emergency_contacts` (`id`, `phone_number`, `contact_name`, `is_active`, `created_at`, `updated_at`) VALUES
-(1, '+255700000000', 'Primary Emergency Contact', 1, '2026-02-27 05:17:49', '2026-02-27 05:17:49'),
+(1, '+255797343283', 'Selemani Mairo', 1, '2026-02-27 05:17:49', '2026-02-27 05:17:49'),
 (2, '+255712345678', 'Fire Department Dar es Salaam', 0, '2026-02-27 06:28:26', '2026-02-27 07:29:22'),
 (3, '+255789012345', 'Family Member', 0, '2026-02-27 06:28:26', '2026-02-27 07:37:18'),
 (5, '+255763930052', 'Hydra', 1, '2026-02-27 07:38:18', '2026-02-27 07:38:18');

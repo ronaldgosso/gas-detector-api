@@ -37,7 +37,7 @@ void loop() {
   */
 
   if (sensorValue >= 800) {
-    status = "CRITICAL";
+    status = "ALERT";
     // CRITICAL: Send proper format for mobile app
     String data = "GAS:" + String(sensorValue) + "," + status;
     BTserial.println(data);
@@ -55,7 +55,7 @@ void loop() {
     digitalWrite(buzzerPin, LOW);
     delay(100);
   } else if (sensorValue >= 700 && sensorValue <= 800) {
-    status = "ALERT";
+    status = "NORMAL";
     String data = "GAS:" + String(sensorValue) + "," + status;
     BTserial.println(data);
 
