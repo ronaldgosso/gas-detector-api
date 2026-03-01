@@ -13,6 +13,7 @@ const app = express();
 app.use(cors(
     {
         origin: 'https://ronaldgosso.github.io',
+        methods: ["GET", "POST"],
     }
 ));
 app.use(bodyParser.json());
