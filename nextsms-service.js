@@ -96,7 +96,7 @@ class NextSMSService {
 
       const options = {
         hostname: this.baseUrl,
-        path: '/api/v2/sms/send',
+        path: '/api/v2/sms/text/single',
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${this.apiToken}`,

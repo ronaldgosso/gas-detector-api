@@ -33,7 +33,7 @@ let lastDataReceived = Date.now();
 let heartbeatTimer = null;
 let isShuttingDown = false;
 
-// Re-fetch port on каждый reconnect if needed
+// Re-fetch port on reconnect if needed
 async function refreshConfig() {
   BLUETOOTH_PORT = await settingsService.getBluetoothPort();
   const baud = await settingsService.getSetting('bluetooth_baud_rate', '9600');
