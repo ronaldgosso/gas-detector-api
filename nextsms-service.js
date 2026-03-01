@@ -66,7 +66,9 @@ class NextSMSService {
     );
 
     // Format urgent message
-    const message = `🚨 CRITICAL GAS LEAK!\n📍 ${location}\n📊 ${gasLevel} PPM\n⚠️ EVACUATE IMMEDIATELY!\n${new Date().toLocaleString('sw-TZ')}`;
+    const message = `🚨 CRITICAL GAS LEAK!\n📍 ${location}\n📊 ${gasLevel} PPM\n⚠️ EVACUATE IMMEDIATELY!\n${new Date().toLocaleString('sw-TZ', {
+      timeZone: 'Africa/Dar_es_Salaam'
+    })}`;
 
     try {
       console.log(`📤 Sending SMS to ${recipients.length} contact(s): ${recipients.join(', ')}`);
