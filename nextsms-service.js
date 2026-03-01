@@ -89,9 +89,11 @@ class NextSMSService {
   _sendRaw(message, recipients) {
     return new Promise((resolve, reject) => {
       const data = JSON.stringify({
-        sender_id: this.senderId,
-        recipients: recipients,
-        message: message
+        "from": this.senderId,
+        "to": recipients,
+        "text": message,
+        "flash": 0,
+        "reference": "gasAlert"
       });
 
       const options = {
