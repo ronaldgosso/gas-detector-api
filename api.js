@@ -32,7 +32,7 @@ router.get('/sensor/latest', async (req, res) => {
     const result = await db.query(
       'SELECT * FROM incidents ORDER BY timestamp DESC LIMIT 1'
     );
-    
+
     if (result.length === 0) {
       return res.json({
         success: true,
@@ -64,7 +64,7 @@ router.get('/incidents', async (req, res) => {
     const limit = parseInt(req.query.limit) || 10;
     const statusFilter = req.query.status;
     const search = req.query.search || '';
-    
+
     let offset = (page - 1) * limit;
     let sql = 'SELECT * FROM incidents WHERE 1=1';
     let countSql = 'SELECT COUNT(*) as total FROM incidents WHERE 1=1';
@@ -115,7 +115,7 @@ router.get('/incidents/:id', async (req, res) => {
   try {
     const { id } = req.params;
     const result = await db.query('SELECT * FROM incidents WHERE id = ?', [id]);
-    
+
     if (result.length === 0) {
       return res.status(404).json({
         success: false,
@@ -176,10 +176,10 @@ router.post('/incidents', [
           'SELECT setting_value FROM settings WHERE setting_key = ?',
           ['sms_contact_id']
         );
-        
+
         const smsContactId = prefResult.length > 0 ? prefResult[0].setting_value : '0';
         let contacts = [];
-        
+
         if (smsContactId === '0') {
           // Send to all active contacts
           const allActive = await db.query(
@@ -198,7 +198,7 @@ router.post('/incidents', [
         if (contacts.length > 0) {
           // TODO: Integrate with NextSMS service here
           console.log(`📱 SMS TRIGGERED for ${gas_level} PPM to ${contacts.length} contact(s)`);
-          
+
           // Example integration (uncomment when NextSMS service is ready):
           /*
           const nextsms = require('../services/nextsms-service');
@@ -232,37 +232,37 @@ router.put('/incidents/:id', async (req, res) => {
   try {
     const { id } = req.params;
     const { gas_level, status, location } = req.body;
-    
+
     let sql = 'UPDATE incidents SET ';
     let params = [];
-    
-    if (gas_level !== undefined) { 
-      sql += 'gas_level = ?, '; 
-      params.push(gas_level); 
+
+    if (gas_level !== undefined) {
+      sql += 'gas_level = ?, ';
+      params.push(gas_level);
     }
-    if (status !== undefined) { 
-      sql += 'status = ?, '; 
-      params.push(status); 
+    if (status !== undefined) {
+      sql += 'status = ?, ';
+      params.push(status);
     }
-    if (location !== undefined) { 
-      sql += 'location = ?, '; 
-      params.push(location); 
+    if (location !== undefined) {
+      sql += 'location = ?, ';
+      params.push(location);
     }
-    
+
     // Remove trailing comma and space
     sql = sql.slice(0, -2);
     sql += ' WHERE id = ?';
     params.push(id);
-    
+
     const result = await db.query(sql, params);
-    
+
     if (result.affectedRows === 0) {
       return res.status(404).json({
         success: false,
         message: 'Incident not found'
       });
     }
-    
+
     res.json({
       success: true,
       message: 'Incident updated successfully'
@@ -280,14 +280,14 @@ router.put('/incidents/:id', async (req, res) => {
 router.delete('/incidents/:id', async (req, res) => {
   try {
     const result = await db.query('DELETE FROM incidents WHERE id = ?', [req.params.id]);
-    
+
     if (result.affectedRows === 0) {
       return res.status(404).json({
         success: false,
         message: 'Incident not found'
       });
     }
-    
+
     res.json({
       success: true,
       message: 'Incident deleted successfully'
@@ -306,7 +306,7 @@ router.delete('/incidents/clear', async (req, res) => {
   try {
     await db.query('DELETE FROM incidents');
     await db.query('ALTER TABLE incidents AUTO_INCREMENT = 1');
-    
+
     res.json({
       success: true,
       message: 'All incidents cleared successfully'
@@ -338,8 +338,8 @@ router.get('/statistics', async (req, res) => {
     );
 
     const distribution = {};
-    distributionResult.forEach(row => { 
-      distribution[row.status] = row.count; 
+    distributionResult.forEach(row => {
+      distribution[row.status] = row.count;
     });
 
     res.json({
@@ -368,34 +368,34 @@ router.get('/incidents/export', async (req, res) => {
   try {
     const format = req.query.format || 'json';
     const statusFilter = req.query.status;
-    
+
     let sql = 'SELECT id, gas_level, status, timestamp, location FROM incidents WHERE 1=1';
     let params = [];
-    
-    if (statusFilter && statusFilter !== 'all') { 
-      sql += ' AND status = ?'; 
-      params.push(statusFilter); 
+
+    if (statusFilter && statusFilter !== 'all') {
+      sql += ' AND status = ?';
+      params.push(statusFilter);
     }
-    
+
     sql += ' ORDER BY timestamp DESC';
     const results = await db.query(sql, params);
 
     if (format === 'csv') {
       const headers = ['ID', 'Gas Level (PPM)', 'Status', 'Timestamp', 'Location'];
-      const rows = results.map(row => 
+      const rows = results.map(row =>
         [row.id, row.gas_level, row.status, row.timestamp, row.location].join(',')
       );
       const csvContent = [headers.join(','), ...rows].join('\n');
-      
+
       res.setHeader('Content-Type', 'text/csv');
       res.setHeader('Content-Disposition', `attachment; filename=gas_incidents_${Date.now()}.csv`);
       return res.send(csvContent);
     }
-    
-    res.json({ 
-      success: true, 
-      data: results, 
-      count: results.length 
+
+    res.json({
+      success: true,
+      data: results,
+      count: results.length
     });
   } catch (error) {
     res.status(500).json({
@@ -411,13 +411,13 @@ router.get('/settings', async (req, res) => {
   try {
     const result = await db.query('SELECT setting_key, setting_value, description FROM settings');
     const settings = {};
-    result.forEach(row => { 
-      settings[row.setting_key] = row.setting_value; 
+    result.forEach(row => {
+      settings[row.setting_key] = row.setting_value;
     });
-    
-    res.json({ 
-      success: true, 
-      data: settings 
+
+    res.json({
+      success: true,
+      data: settings
     });
   } catch (error) {
     res.status(500).json({
@@ -432,24 +432,24 @@ router.get('/settings', async (req, res) => {
 router.post('/settings', async (req, res) => {
   try {
     const { settings } = req.body;
-    
+
     if (!settings || typeof settings !== 'object') {
-      return res.status(400).json({ 
-        success: false, 
-        message: 'Invalid settings format' 
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid settings format'
       });
     }
-    
+
     for (const [key, value] of Object.entries(settings)) {
       await db.query(
-        'UPDATE settings SET setting_value = ? WHERE setting_key = ?', 
+        'UPDATE settings SET setting_value = ? WHERE setting_key = ?',
         [value.toString(), key]
       );
     }
-    
-    res.json({ 
-      success: true, 
-      message: 'Settings updated successfully' 
+
+    res.json({
+      success: true,
+      message: 'Settings updated successfully'
     });
   } catch (error) {
     res.status(500).json({
@@ -465,23 +465,23 @@ router.get('/logs', async (req, res) => {
   try {
     const limit = parseInt(req.query.limit) || 50;
     const type = req.query.type;
-    
+
     let sql = 'SELECT * FROM system_logs WHERE 1=1';
     let params = [];
-    
-    if (type && type !== 'all') { 
-      sql += ' AND log_type = ?'; 
-      params.push(type); 
+
+    if (type && type !== 'all') {
+      sql += ' AND log_type = ?';
+      params.push(type);
     }
-    
+
     sql += ' ORDER BY timestamp DESC LIMIT ?';
     params.push(limit);
-    
+
     const results = await db.query(sql, params);
-    
-    res.json({ 
-      success: true, 
-      data: results 
+
+    res.json({
+      success: true,
+      data: results
     });
   } catch (error) {
     res.status(500).json({
@@ -498,10 +498,10 @@ router.get('/bluetooth/status', async (req, res) => {
     const result = await db.query(
       'SELECT * FROM bluetooth_connections ORDER BY last_connected DESC LIMIT 1'
     );
-    
-    res.json({ 
-      success: true, 
-      data: result.length > 0 ? result[0] : null 
+
+    res.json({
+      success: true,
+      data: result.length > 0 ? result[0] : null
     });
   } catch (error) {
     res.status(500).json({
@@ -516,14 +516,14 @@ router.get('/bluetooth/status', async (req, res) => {
 router.post('/bluetooth/status', async (req, res) => {
   try {
     const { device_name, mac_address, port, status } = req.body;
-    
+
     await db.query(
       `INSERT INTO bluetooth_connections (device_name, mac_address, port, status, last_connected) 
        VALUES (?, ?, ?, ?, NOW()) 
        ON DUPLICATE KEY UPDATE status = ?, last_connected = NOW()`,
       [device_name, mac_address, port, status, status]
     );
-    
+
     res.json({
       success: true,
       message: 'Bluetooth status updated'
@@ -552,13 +552,13 @@ router.get('/statistics/daily', async (req, res) => {
       FROM incidents 
       WHERE timestamp >= DATE_SUB(NOW(), INTERVAL ? DAY)
       GROUP BY DATE(timestamp)
-      ORDER BY date DESC`, 
+      ORDER BY date DESC`,
       [days]
     );
-    
-    res.json({ 
-      success: true, 
-      data: result 
+
+    res.json({
+      success: true,
+      data: result
     });
   } catch (error) {
     res.status(500).json({
@@ -574,16 +574,16 @@ router.get('/chart/data', async (req, res) => {
   try {
     const limit = parseInt(req.query.limit) || 50;
     const result = await db.query(
-      'SELECT id, gas_level, status, timestamp FROM incidents ORDER BY timestamp DESC LIMIT ?', 
+      'SELECT id, gas_level, status, timestamp FROM incidents ORDER BY timestamp DESC LIMIT ?',
       [limit]
     );
-    
+
     // Reverse to show chronological order (oldest first)
     result.reverse();
-    
-    res.json({ 
-      success: true, 
-      data: result 
+
+    res.json({
+      success: true,
+      data: result
     });
   } catch (error) {
     res.status(500).json({
