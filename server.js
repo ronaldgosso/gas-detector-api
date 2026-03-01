@@ -4,7 +4,6 @@ const cors = require('cors');
 const bodyParser = require('body-parser');
 const db = require('./database');
 const apiRoutes = require('./api.js');
-const emergencyContactRoutes = require('./emergency-contact.js');
 const settingsService = require('./settings-service.js');
 
 const app = express();
