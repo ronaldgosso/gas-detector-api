@@ -2,15 +2,19 @@ require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
 const bodyParser = require('body-parser');
-const db = require('./config/database');
-const apiRoutes = require('./routes/api');
-const emergencyContactRoutes = require('./routes/emergency-contact');
-const settingsService = require('./services/settings-service');
+const db = require('./database');
+const apiRoutes = require('./api.js');
+const emergencyContactRoutes = require('./emergency-contact.js');
+const settingsService = require('./settings-service.js');
 
 const app = express();
 
 // ===== MIDDLEWARE =====
-app.use(cors());
+app.use(cors(
+    {
+        origin: 'https://ronaldgosso.github.io/gas-detector-api/',
+    }
+));
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true }));
 

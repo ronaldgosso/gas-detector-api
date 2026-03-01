@@ -2,10 +2,10 @@
   "name": "gas-detector-API",
   "version": "1.0.0",
   "description": "Node.js server for IoT Gas Leak Detection System with Bluetooth",
-  "main": "app.js",
+  "main": "./api/app.js",
   "scripts": {
-    "start": "node app.js",
-    "dev": "nodemon app.js",
+    "start": "node server.js",
+    "dev": "nodemon server.js",
     "bluetooth": "node bluetooth-receiver.js",
     "both": "concurrently \"npm run dev\" \"npm run bluetooth\""
   },

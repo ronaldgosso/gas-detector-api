@@ -1,6 +1,6 @@
 const express = require('express');
 const router = express.Router();
-const db = require('../config/database');
+const db = require('./database');
 
 // Get all active emergency contacts
 router.get('/list', async (req, res) => {

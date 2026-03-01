@@ -2,7 +2,7 @@ require('dotenv').config();
 const SerialPort = require('serialport');
 const { ReadlineParser } = require('@serialport/parser-readline');
 const mysql = require('mysql2/promise');
-const settingsService = require('./services/settings-service');
+const settingsService = require('./settings-service');
 
 // ===== CONFIGURATION =====
 // Replaced hardcoded defaults with dynamic fetching in init
