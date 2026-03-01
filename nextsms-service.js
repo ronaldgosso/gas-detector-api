@@ -93,12 +93,12 @@ class NextSMSService {
         "to": recipients,
         "text": message,
         "flash": 0,
-        "reference": "gasAlert"
+        "reference": "gasAlertxcftz"
       });
 
       const options = {
         hostname: this.baseUrl,
-        path: '/api/v2/sms/text/single',
+        path: '/api/sms/v2/text/single',
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${this.apiToken}`,
