@@ -1,14 +1,11 @@
-// #include "LiquidCrystal_I2C.h"
-
-// LiquidCrystal_I2C lcd = LiquidCrystal_I2C(0x3F, 16, 2);
 #include <SoftwareSerial.h>
 
-SoftwareSerial BTserial(3, 2);
-byte data = 0x01;  // RX | TX
-const int buzzerPin = 12;
+SoftwareSerial BTserial(3, 2);// RX | TX
+//!TODO: change later to buzzerPin = 12
+const int buzzerPin = 13;
 const int baudRate = 9600;
 String status;
-
+const long WARMUP_MS   = 30000; // MQ-3 warm-up time (ms)
 
 void setup() {
   Serial.begin(baudRate);
@@ -16,8 +13,10 @@ void setup() {
   BTserial.begin(baudRate);
   // Buzzer connected to pin D12
   pinMode(buzzerPin, OUTPUT);
-  // lcd.init();
-  // lcd.backlight();
+  Serial.println("Warming up MQ-3...");
+  delay(WARMUP_MS);
+  Serial.println("Ready.");
+
 }
 
 void loop() {
