@@ -8,7 +8,9 @@ SERIAL_PORT      = "COM8"
 BAUD_RATE        = 9600
 SERIAL_TIMEOUT   = 2
 API_ENDPOINT     = "https://gas-detector-api.vercel.app"
+INCIDENT_UPDATE_ENDPOINT = f"{API_ENDPOINT}/api/incidents"
 NEXTSMS_API_KEY  = "bae6d2a965bd6e2e584c7b60c20e0cb5"
+NEXTSMS_URL      = "https://messaging-service.co.tz/api/sms/v2/text/single"
 DEVICE_ID        = "arduino-nano"
 NEXTSMS_SENDER   = "RMNDR"
 NEXTSMS_TO       = "0763930052"
@@ -54,23 +56,22 @@ def parse_reading(raw_line: str):
 
 
 def insert_to_api(value: int, status: str, average=None, readings=None) -> bool:
-    payload = {
-        "device_id": DEVICE_ID,
-        "timestamp": datetime.now(timezone.utc).isoformat(),
-        "value":     value,
-        "status":    status,
-    }
+    payload = json.dumps({
+        "gas_level": value,
+        "status": status,
+        "location": "Main Lab",
+        "sensor_id": "Mobile Sensor"
+    })
+    
     if average is not None:
         payload["average_value"] = round(average, 2)
-        payload["readings"]      = readings
+        payload["readings"]  = readings
 
     headers = {"Content-Type": "application/json", "Accept": "application/json"}
-    if API_KEY and API_KEY != "your-api-key-here":
-        headers["Authorization"] = f"Bearer {API_KEY}"
 
     for attempt in range(1, MAX_RETRIES + 1):
         try:
-            r = requests.post(API_ENDPOINT, json=payload, headers=headers, timeout=5)
+            r = requests.request("POST", INCIDENT_UPDATE_ENDPOINT, data=payload, headers=headers)
             r.raise_for_status()
             log.info(f"API OK | value={value} status={status} | HTTP {r.status_code}")
             return True
@@ -119,20 +120,18 @@ def send_sms(average: float, readings: list) -> bool:
     "flash": 0,
     "reference": "xaefcgt"
     })
-    
+
     headers = {
         "Content-Type":  "application/json",
         "Accept":        "application/json",
         "Authorization": f"Bearer {NEXTSMS_API_KEY}",
     }
 
-    url = "https://messaging-service.co.tz/api/sms/v2/text/single"
-
     for attempt in range(1, MAX_RETRIES + 1):
         try:
             r = requests.request(
                 "POST",
-                url,
+                NEXTSMS_URL,
                 data=payload, headers=headers
             )
             r.raise_for_status()
@@ -216,5 +215,5 @@ def read_serial():
 if __name__ == "__main__":
     # list_ports()
     # send_sms(average=100, readings=[100, 100, 100])
-    # read_serial()
-    get_active_number()
+    read_serial()
+    # get_active_number()
