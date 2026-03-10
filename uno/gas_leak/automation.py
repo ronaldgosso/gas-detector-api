@@ -60,7 +60,7 @@ def insert_to_api(value: int, status: str, average=None, readings=None) -> bool:
         "gas_level": value,
         "status": status,
         "location": "Main Lab",
-        "sensor_id": "Mobile Sensor"
+        "sensor_id": "Default Sensor"
     })
     
     if average is not None:
