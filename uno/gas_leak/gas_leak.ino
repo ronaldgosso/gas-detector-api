@@ -3,10 +3,11 @@
 
 
 SoftwareSerial BTserial(3, 2);  // RX | TX
-//!TODO: change later to buzzerPin = 12
-const int buzzerPin = 13;
+const int buzzerPin = 12;
 const int baudRate = 9600;
-const long WARMUP_MS = 30000;  // MQ warm-up time (ms)
+const long WARMUP_MS = 30000;  // MQ warm-up time (ms) to stabilize its internal sensing material, 
+// enabling it to provide accurate and reliable readings. 
+// Without this initial heating, the sensor will produce unreliable, high-reading results.
 
 // Wiring: SDA pin is connected to A4 and SCL pin to A5.
 // Connect to LCD via I2C, default address 0x27 (A0-A2 not jumpered)
@@ -22,9 +23,9 @@ void setup() {
   // Buzzer connected to pin D12
   pinMode(buzzerPin, OUTPUT);
   pinMode(A0,INPUT_PULLUP);
-  Serial.println("Warming up MQ Sensor...");
+  Serial.println("Warming up MQ Sensor 30 seconds...");
   delay(WARMUP_MS);
-  Serial.println("Ready.....");
+  Serial.println("MQ - Ready ✅.....");
 }
 
 void loop() {
