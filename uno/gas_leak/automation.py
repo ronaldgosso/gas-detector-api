@@ -1,8 +1,9 @@
 import json
-import serial, serial.tools.list_ports, requests, time, logging, threading, base64, json
-from datetime import datetime, timezone
+import serial, serial.tools.list_ports, requests, time, logging, threading, json
 from queue import Queue, Empty
 from collections import deque
+from pynextsms import SMSClient
+
 
 SERIAL_PORT      = "COM8"
 BAUD_RATE        = 9600
@@ -13,7 +14,7 @@ NEXTSMS_API_KEY  = "bae6d2a965bd6e2e584c7b60c20e0cb5"
 NEXTSMS_URL      = "https://messaging-service.co.tz/api/sms/v2/text/single"
 DEVICE_ID        = "arduino-nano"
 NEXTSMS_SENDER   = "RMNDR"
-NEXTSMS_TO       = "0763930052"
+NEXTSMS_TO       = "+255763930052"
 ALERT_THRESHOLD  = 800
 AVERAGE_WINDOW   = 3
 MAX_RETRIES      = 3
@@ -106,50 +107,17 @@ def send_sms(average: float, readings: list) -> bool:
     message = (
         f"GAS LEAK DETECTED! PPM: {readings}. "
         f"Average PPM: {average:.1f}. "
-        f"⚠️ Immediate action required! ⚠️"
+        f"⚠️🚨 Immediate action required! 🚨⚠️"
     )
 
-
     NEXTSMS_TO = get_active_number() or NEXTSMS_TO
+    clean_phone = NEXTSMS_TO.replace("+", "")
 
-    payload = json.dumps({
-    "from": NEXTSMS_SENDER,
-    #! only Vodacom Numbers
-    "to": NEXTSMS_TO,
-    "text": message,
-    "flash": 0,
-    "reference": "xaefcgt"
-    })
+    client = SMSClient(token=NEXTSMS_API_KEY, sender_id=NEXTSMS_SENDER)
 
-    headers = {
-        "Content-Type":  "application/json",
-        "Accept":        "application/json",
-        "Authorization": f"Bearer {NEXTSMS_API_KEY}",
-    }
-
-    for attempt in range(1, MAX_RETRIES + 1):
-        try:
-            r = requests.request(
-                "POST",
-                NEXTSMS_URL,
-                data=payload, headers=headers
-            )
-            r.raise_for_status()
-            log.info(f"SMS SENT | avg={average:.1f} | to={NEXTSMS_TO} | HTTP {r.status_code} | Response {r.text}")
-            return True
-        except requests.exceptions.ConnectionError:
-            log.error(f"SMS connection failed (attempt {attempt}/{MAX_RETRIES})")
-        except requests.exceptions.Timeout:
-            log.error(f"SMS timeout (attempt {attempt}/{MAX_RETRIES})")
-        except requests.exceptions.HTTPError as e:
-            log.error(f"SMS HTTP {e.response.status_code}: {e.response.text[:200]}")
-            if 400 <= e.response.status_code < 500:
-                return False
-        except Exception as e:
-            log.error(f"SMS error: {e}")
-        if attempt < MAX_RETRIES:
-            time.sleep(RETRY_DELAY)
-    return False
+    resp = client.sms.send(clean_phone, message)
+    log.info(resp)
+    return resp.successful
 
 
 def api_sender_thread():
@@ -214,6 +182,6 @@ def read_serial():
 
 if __name__ == "__main__":
     # list_ports()
-    # send_sms(average=100, readings=[100, 100, 100])
+    # text_sms()
     read_serial()
     # get_active_number()
