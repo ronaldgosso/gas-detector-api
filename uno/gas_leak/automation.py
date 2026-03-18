@@ -56,18 +56,19 @@ def parse_reading(raw_line: str):
         return None
 
 
-def insert_to_api(value: int, status: str, average=None, readings=None) -> bool:
-    payload = json.dumps({
+def insert_to_api(value: int, status=None, average=None, readings=None) -> bool:
+    payload_dict = {
         "gas_level": value,
         "status": status,
         "location": "Main Lab",
         "sensor_id": "Default Sensor"
-    })
-    
-    if average is not None:
-        payload["average_value"] = round(average, 2)
-        payload["readings"]  = readings
+    }
 
+    if average is not None:
+        payload_dict["average_value"] = round(average, 2)
+        payload_dict["readings"] = readings
+
+    payload = json.dumps(payload_dict)
     headers = {"Content-Type": "application/json", "Accept": "application/json"}
 
     for attempt in range(1, MAX_RETRIES + 1):
@@ -131,11 +132,11 @@ def api_sender_thread():
             if task == "alert":
                 average, readings, last_value = data
                 log.warning(f"ALERT CONFIRMED | avg={average:.1f} | readings={readings}")
-                insert_to_api(last_value, "ALERT", average=average, readings=readings)
+                insert_to_api(last_value, status="ALERT", average=average, readings=readings)
                 send_sms(average, readings)
             elif task == "normal":
                 value = data
-                insert_to_api(value, "NORMAL")
+                insert_to_api(value, status="NORMAL")
             data_queue.task_done()
         except Empty:
             continue
