@@ -10,7 +10,7 @@ This system provides **real-time gas detection**, **edge intelligence processing
 ![Maintenance](https://img.shields.io/badge/maintained-yes-brightgreen)
 
 <!-- Deployment -->
-![Render](https://img.shields.io/badge/deployed%20on-Render-46E3B7?logo=render&logoColor=white)
+![Vercel](https://img.shields.io/badge/deployed%20on-Vercel-46E3B7?logo=vercel&logoColor=white)
 ![Live Demo](https://img.shields.io/badge/live-demo-brightgreen)
 ![API Docs](https://img.shields.io/badge/API-Postman-orange?logo=postman)
 
@@ -64,48 +64,14 @@ https://documenter.getpostman.com/view/12814851/2sBXcHiJza
 ---
 
 # 📱 System Architecture
-ARDUINO UNO (Physical Sensor Layer)
-│
-├─ MQ-2 Gas Sensor → Reads gas concentration (0–1023 PPM)
-├─ HC-05 Bluetooth → Transmits data every 3 seconds
-├─ Buzzer/LED → Immediate local alert (independent of internet)
-│
-↓ Bluetooth Transmission
-│
-FLUTTER MOBILE APP (Edge Intelligence Layer)
-│
-├─ Real-time visualization
-├─ Rolling average of last 3 readings
-├─ Sends to server ONLY if avg > 800 PPM
-├─ Offline support
-├─ Retry queue (exponential backoff, max 5 attempts)
-│
-↓ HTTPS POST
-│
-NODE.JS API SERVER (Cloud Layer)
-│
-├─ RESTful API
-├─ SMS integration (NextSMS Tanzania)
-├─ Emergency contact management
-├─ Bluetooth connection tracking
-│
-↓ Secure SSL/TLS
-│
-AIVEN MYSQL DATABASE
-│
-├─ Historical storage
-├─ Analytics & statistics
-├─ User management
-└─ Automatic daily backups
 
+![System Architecture](src/arch.png)
 
 ---
 
 # ✨ Key Features
 
 ## 📱 Mobile App (Flutter)
-
-- Bluetooth connectivity to HC-05
 - Animated real-time charts
 - Edge intelligence (avg > 800 PPM transmission logic)
 - Offline resilience
@@ -155,7 +121,6 @@ AIVEN MYSQL DATABASE
 | MQ-2 Gas Sensor | LPG/Smoke/Methane | 1 |
 | HC-05 Bluetooth | Master/Slave | 1 |
 | Active Buzzer | 5V | 1 | 
-| LED (Red) | 5mm | 1 | 
 | Resistors | 220Ω, 1kΩ, 2kΩ | 4 | 
 | Breadboard | Full-size | 1 | 
 | Jumper Wires | Male/Female | 20 | 
