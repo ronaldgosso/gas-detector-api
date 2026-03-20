@@ -81,6 +81,8 @@ View:
 - Tanzania optimized (+255 validation)
 - Dark & Light themes
 
+![Mobile App](src/phone.jpeg)
+
 ---
 
 ## 💻 Web Dashboard
@@ -91,6 +93,8 @@ View:
 - Bluetooth status monitoring
 - Export functionality (JSON, CSV, PDF)
 - Fully responsive UI
+
+![Web Dashboard](src/dash.png)
 
 ---
 
