@@ -181,7 +181,7 @@ Server enforces:
 - Aiven MySQL (Cloud hosted)
 
 ### Hosting
-- Render.com (Free tier)
+- Vercel
 
 ### SMS
 - NextSMS Tanzania API
@@ -233,22 +233,72 @@ PUT /emergency-contact/settings/sms-selection
 # 📌 Deployment
 
 Backend hosted on:
-https://gas-detector-api.onrender.com
+https://gas-detector-api.vercel.app/
 
 Database:
 Aiven Cloud MySQL with automatic backups.
 
 ---
 
+
+# 💻 Getting Started (Developer Setup)
+
+To run this project locally for development:
+
+1. **Clone the repository**
+   ```bash
+   git clone https://github.com/ronaldgosso/gas-detector-api.git
+   cd gas-detector-api
+   ```
+
+2. **Install dependencies**
+   
+   If using the standard approach:
+   ```bash
+   npm install
+   ```
+
+   **Or, to install from the text file (`requirements.txt`):**
+
+   *For Linux/macOS (Bash):*
+   ```bash
+   xargs -a requirements.txt npm install
+   ```
+
+   *For Windows (PowerShell):*
+   ```powershell
+   Get-Content requirements.txt | ForEach-Object { npm install $_ }
+   ```
+
+3. **Environment Setup**
+   Create a `.env` file in the root directory and configure your necessary credentials (e.g., MySQL Database, NextSMS API, Port).
+
+4. **Run the application**
+
+   To start the API server in development mode (with auto-reload):
+   ```bash
+   npm run dev
+   ```
+
+   To start both the API server and Bluetooth receiver concurrently (useful when working with the Arduino hardware):
+   ```bash
+   npm run both
+   ```
+
+---
+
 # 📜 License
 
-MIT License (Recommended — update if different)
+MIT License
 
 ---
 
 # 👨‍💻 Author
 
 Developed as an IoT + Cloud integration project combining embedded systems, mobile intelligence, and cloud architecture.
+
+✉️ ronaldgosso@gmail.com
+
 
 ---
 
