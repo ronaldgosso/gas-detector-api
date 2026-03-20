@@ -46,6 +46,10 @@ This system provides **real-time gas detection**, **edge intelligence processing
 
 ---
 
+![System Architecture](src/arch.png)
+
+---
+
 ## 🌐 Live Demo
 
 **Web Dashboard:**  
@@ -58,14 +62,12 @@ View:
 - Emergency contacts
 
 **API Documentation (Postman):**  
-https://documenter.getpostman.com/view/12814851/2sBXcHiJza
+[Postman Link](https://documenter.getpostman.com/view/12814851/2sBXcHiJza)
 
 
 ---
 
-# 📱 System Architecture
-
-![System Architecture](src/arch.png)
+![Gas Level](src/gaslevel.jpeg)
 
 ---
 
