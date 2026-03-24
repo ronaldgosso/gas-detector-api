@@ -53,7 +53,7 @@ This system provides **real-time gas detection**, **edge intelligence processing
 ## 🌐 Live Demo
 
 **Web Dashboard:**  
-https://ronaldgosso.github.io/gas-detector-api
+[Web Dashboard](https://ronaldgosso.github.io/gas-detector/)
 
 View:
 - Real-time gas levels
