@@ -131,6 +131,7 @@ View:
 | Breadboard | Full-size | 1 | 
 | Jumper Wires | Male/Female | 20 | 
 
+<img width="1774" height="1727" alt="diagram-export-3-9-2026-9_15_41-PM" src="https://github.com/user-attachments/assets/f4e5113b-2213-4645-9e87-5f50873f722a" />
 ---
 
 # 🧠 Smart Logic Design
